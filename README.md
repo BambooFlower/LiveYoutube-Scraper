@@ -1,2 +1,7 @@
 # LiveYoutube Scraper
-Live Youtube Python Scraper, I dunno it's Seva's idea
+Scrape YouTube Live without API. 
+
+# Options
+1) Scrape stats (number of people watching, number of likes/dislikes)
+
+2) Scrape comments as they come in
