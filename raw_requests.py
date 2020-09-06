@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep  1 16:54:14 2020
-
-@author: vz237
+Scrape using raw requests.
+Inspired by https://github.com/LinaTsukusu/youtube-chat
 """
 
 from requests import session
@@ -14,30 +13,176 @@ from time import sleep
 import os
 
 
-#https://github.com/LinaTsukusu/youtube-chat
-
-#liveid = 'mg7FweYjasE'
 #headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'}
-#channel = 'UC3ZODI-xZfdPanPP6tKUg9g'
-#url = 'https://www.youtube.com/channel/{}/live'.format(channel)
-#
+
 s = session()
-#s.get('https://youtube.com')
-#s.headers = headers
-#
-#
-#url = 'https://www.youtube.com/live_chat?v={}&pbj=1'.format(liveid)
-#r = s.get(url)
-##matches = re.findall('"watchEndpoint":{"videoId":"[aA-zZ0-9]+',r.text)
-
-# Find number of people watching
 
 
-video_id = 'qKfcKzxJCcg' # Navalny
-#video_id = 'TIRFThJW-V8' # Solovey
-#video_id = '0M08QN0b2sw' # solovey 2
-video_id = 'fRgUKrT6F6k' # dojd
+class Scraper():
+    def __init__(self,videos,output_path = os.getcwd(), user_agent=None,headers=None):
+        self.s = session()
+        self.videos = videos
+        self.output_path = output_path
+        self.comment_output_path = os.getcwd()
+        self.comment_timeout = 10  # Timeout within scrape stats loop
+        self.comment_prescrape_time = 60*60  # Minimum time before the start of the stream
+        self.comment_time_step = 30  # Time step of comment scrape
+        
+        if not headers is None:
+            s.headers = headers
+        if not user_agent is None:
+            s['User-Agent'] = user_agent
 
+    def get_stats(self,video_id,video_c=0):
+        url = 'https://youtube.com/watch?v={}'.format(video_id)
+        r = self.s.get(url)
+        
+        output = {'channel':video_id,
+                  'next-check':None,
+                  'is-live':False,
+                  'status-code':None,
+                  'time':time(),
+                  'viewers':None,
+                  'likes':None,
+                  'dislikes':None,
+                  'video_c':video_c,
+                  'next-check':None,
+                  }
+    
+        output['status-code'] = r.status_code
+        if r.status_code != 200:
+            print('Error {}'.format(r.status_code))
+            output['is-live'] = False
+            return output
+        waiting_list = re.findall('text":"[0-9,]+ waiting"',r.text)
+        watching_list = re.findall('[0-9,]+ watching now',r.text)
+        likes_list = re.findall('[,0-9]+ likes',r.text)
+        dislikes_list = re.findall('[,0-9]+ dislikes',r.text)
+#        with open("output.txt","w",encoding='utf-8') as f:
+#            f.write(r.text)
+            
+        
+        channel = re.findall('[cC]hannelName":".*?"',r.text)[0].replace('"','').replace('hannelName:','').replace('c','').replace('C','')
+        output['channel'] = channel
+            
+        num_viewers = 0
+        if waiting_list != []:
+            num_viewers = waiting_list[0].replace(' waiting','').replace(',','').replace('text":"','').replace('"','')
+        elif watching_list != []:
+            num_viewers = watching_list[0].replace(' watching now','').replace(',','')#.replace('simpleText":"','').replace('"','')
+        else:
+            return output
+        
+        output['viewers'] = num_viewers
+        
+        if 'false' in re.findall('"isLiveNow":[a-z]+',r.text)[0]:
+            if re.findall('"endTimestamp":"[0-9\-T\+:]+"',r.text) != []:
+                is_live = False
+                next_check = None
+            else:
+                is_live = True
+                timestamp = eval(re.findall('scheduledStartTime":"[0-9]+"',r.text)[0].replace('scheduledStartTime":"','').replace('"',''))
+    
+                if timestamp - time() > self.comment_prescrape_time:
+                    next_check = timestamp
+                else:
+                    next_check = time() + self.comment_time_step
+                    
+        else:
+            is_live = True
+            next_check = time() + self.comment_time_step
+        
+        output['is-live'] = is_live
+        output['next-check'] = next_check
+        
+        try:        
+            num_likes = likes_list[0].replace(' likes','').replace(',','')
+        except IndexError:
+            num_likes = 0
+        try:
+            num_dislikes = dislikes_list[0].replace(' dislikes','').replace(',','')
+        except IndexError:
+            num_dislikes = 0
+            
+        output['likes'] = num_likes
+        output['dislikes'] = num_dislikes
+            
+        
+        return output
+    
+    def scrape_stats(self):
+        first_loop = True
+        while 1:
+            in_to_rem = []
+            for c,video in enumerate(self.videos):
+                video_id = video['id']
+                video_c = video['count']
+                
+                
+                if video['next-check'] is None:
+                    pass
+                else:
+                    d = float(video['next-check'])-time()
+                    if 0 < d < self.comment_time_step:
+                        print('will check {} in {:.2f} seconds'.format(video['name'],(float(video['next-check'])-float(time()))))
+                        continue
+                    elif d > self.comment_prescrape_time:
+                        print('will check {} in {:.2f} minutes'.format(video['name'],abs(60-(float(video['next-check'])-float(time()))/60)))
+                        continue
+                    
+                today = date.today()
+                data = self.get_stats(video_id,video_c=video_c)
+                
+                if not data['is-live']:
+                    if data['status-code'] == 200:
+                        print('Stream from "{}" at "v={}" is Offline'.format(data['channel'],video_id))
+                        in_to_rem.append(self.videos.index(video))
+                        self.videos[c]['next-check'] = data['next-check']
+                        self.videos[c]['name'] = data['channel']
+                        
+                    else:
+                        print('bad error from YouTube {} :('.format(data['status-code']))
+                        exit(-1)
+                else:
+                    self.videos[c]['next-check'] = data['next-check']
+                    self.videos[c]['name'] = data['channel']
+                    if not first_loop:
+                        write_file('{}/{}.txt'.format(self.comment_output_path,today),data)
+                        print("Channel:{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes']))
+        
+            first_loop = False
+            v = [i for i in range(len(self.videos))]
+    
+            tmp_list = self.videos[:]
+            self.videos = []
+            for vi in v:
+                if not vi in in_to_rem:
+                    self.videos.append(tmp_list[vi])
+            print("{}\n".format(datetime.now()))
+            if self.videos == []:
+                break
+            sleep(self.comment_timeout)
+
+def write_file(filename,data):
+#    print(filename)
+    if not os.path.exists(filename):
+        with open(filename,'w',encoding='utf-8') as f:
+            line = ''
+            for key in data.keys():
+                line += key + "\t"
+            line = line[:-1]
+            line +=  "\n"
+            f.write(line)
+
+    with open(filename,'a',encoding='utf-8') as f:
+        line = ''
+        for key in data.keys():
+            tmp = str(data[key])
+            line += tmp.replace("\n","") + "\t"
+        line = line[:-1]
+        line +=  "\n"
+        f.write(line)
+        
 videos = [ 
             {'id':'Q0ZuA_qBCxQ',
             'count':0,
@@ -54,182 +199,14 @@ videos = [
             'name':'dojd',
             'next-check':None},
              
-              {'id':'NM8UMuTcF_A',
+              {'id':'xTLY3CIQ6BM',
             'count':0,
-            'name':'navalny',
+            'name':'solovey',
             'next-check':None},
-              
-              
-#             {'id':'40fFYvNiM-4',
-#            'count':0,
-#            'name':'RBK',
-#            'next-check':None},
-             
-#            {'id':'wyDy1rZnbQc',
-#            'count':1,
-#            'name':'vremya',
-#            'next-check':None},
-              
-             
+
+                
+
          ]
-video_id = 'nh28agdnOc8' # Nashtoyashee Vremya
-video_c = 1
 
-
-#s.headers['User-Agent'] = 'curl/7.64.0'
-#s.headers['Accept'] = '*/*'
-#
-
-def get_data(video_id,video_c=0):
-    url = 'https://youtube.com/watch?v={}'.format(video_id)
-    r = s.get(url)
-#    headers = {'User-Agent':'curl/7.64.0',
-#               'Accept':'*/*',
-#               'Host':'m.youtube.com'}
-#    s.headers = headers
-#    print(s.headers,url)
-    if r.status_code != 200:
-        print('Error {}'.format(r.status_code))
-        return {'channel':video_id,'next-check':None},False,r.status_code
-    waiting_list = re.findall('text":"[0-9,]+ waiting"',r.text)
-    watching_list = re.findall('[0-9,]+ watching now',r.text)
-    likes_list = re.findall('[,0-9]+ likes',r.text)
-    dislikes_list = re.findall('[,0-9]+ dislikes',r.text)
-#    print(re.findall('[cC]hannelName":".*?"',r.text),r.text)
-    with open("output.txt","w",encoding='utf-8') as f:
-        f.write(r.text)
-    channel = re.findall('[cC]hannelName":".*?"',r.text)[0].replace('"','').replace('hannelName:','').replace('c','').replace('C','')
-        
-    num_viewers = 0
-    if waiting_list != []:
-        num_viewers = waiting_list[0].replace(' waiting','').replace(',','').replace('text":"','').replace('"','')
-    elif watching_list != []:
-        num_viewers = watching_list[0].replace(' watching now','').replace(',','')#.replace('simpleText":"','').replace('"','')
-    else:
-        return {'channel':channel,'next-check':None},False,r.status_code
-    
-    if 'false' in re.findall('"isLiveNow":[a-z]+',r.text)[0]:
-        #if not '"endTimestamp"' in r.text:
-        if re.findall('"endTimestamp":"[0-9\-T\+:]+"',r.text) != []:
-            is_live = False
-            next_check = None
-        else:
-            is_live = True
-            timestamp = eval(re.findall('scheduledStartTime":"[0-9]+"',r.text)[0].replace('scheduledStartTime":"','').replace('"',''))
-#            print(timestamp - time())
-            if timestamp - time() > 60*60:
-#                print(1)
-                next_check = timestamp
-            else:
-#                print(0)
-                next_check = time() + 30
-                
-    else:
-        is_live = True
-        next_check = time() + 30
-    
-    try:        
-        num_likes = likes_list[0].replace(' likes','').replace(',','')
-    except IndexError:
-        num_likes = 0
-    try:
-        num_dislikes = dislikes_list[0].replace(' dislikes','').replace(',','')
-    except IndexError:
-        num_dislikes = 0
-        
-#    if is_live:
-#        next_check = time() + 30
-#    else:    
-#        # Find the start time
-#        timestamp = eval(re.findall('scheduledStartTime":"[0-9]+"',r.text)[0].replace('scheduledStartTime":"','').replace('"',''))
-#        
-#        diff_start = time() - timestamp
-#        if diff_start < -60*60:
-#            next_check = timestamp - 60*60
-#        else:
-#            next_check = time() + 30
-    
-    output = {'time':str(time()),
-              'viewers':str(num_viewers),
-              'likes':str(num_likes),
-              'dislikes':str(num_dislikes),
-              'channel':channel,
-              'video_c':str(video_c),
-              'next-check':str(next_check)}
-
-    return output,is_live,r.status_code
-
-def write_file(filename,data):
-    if not os.path.exists(filename):
-        with open(filename,'w',encoding='utf-8') as f:
-            line = ''
-            for key in data.keys():
-                line += key + "\t"
-            line = line[:-1]
-            line +=  "\n"
-            f.write(line)
-
-    with open(filename,'a',encoding='utf-8') as f:
-        line = ''
-        for key in data.keys():
-            line += data[key].replace("\n","") + "\t"
-        line = line[:-1]
-        line +=  "\n"
-        f.write(line)
-
-first_loop = True
-while 1:
-    in_to_rem = []
-    for c,video in enumerate(videos):
-        video_id = video['id']
-        video_c = video['count']
-        
-        
-        if video['next-check'] is None:
-            pass
-        else:
-            d = float(video['next-check'])-time()
-#            print(d,video['name'])
-            if 0 < d < 30:
-                print('will check {} in {:.2f} seconds'.format(video['name'],(float(video['next-check'])-float(time()))))
-                continue
-            elif d > 60*60:
-                print('will check {} in {:.2f} minutes'.format(video['name'],abs(60-(float(video['next-check'])-float(time()))/60)))
-                continue
-        
-#        if -30 <= d <= 0:
-            
-            
-        today = date.today()
-        data,is_live,code = get_data(video_id,video_c=video_c)
-        
-        if not is_live:
-            if code == 200:
-                print('Stream from "{}" at "v={}" is Offline'.format(data['channel'],video_id))
-                in_to_rem.append(videos.index(video))
-                videos[c]['next-check'] = data['next-check']
-                videos[c]['name'] = data['channel']
-                
-            else:
-                print('bad error from YouTube {} :('.format(code))
-                exit(-1)
-        else:
-            videos[c]['next-check'] = data['next-check']
-            videos[c]['name'] = data['channel']
-            if not first_loop:
-                write_file('PythonData/{}.txt'.format(today),data)
-                print("Channel:{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes']))
-
-    first_loop = False
-    v = [i for i in range(len(videos))]
-#    print(next_check)
-    tmp_list = videos[:]
-    videos = []
-    for vi in v:
-        if not vi in in_to_rem:
-            videos.append(tmp_list[vi])
-    print("{}\n".format(datetime.now()))
-    if videos == []:
-        break
-#    break
-    sleep(10)
+S = Scraper(videos=videos,output_path=os.getcwd() + '/Output/Comments')
+S.scrape_stats()
