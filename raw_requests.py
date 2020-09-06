@@ -171,7 +171,7 @@ class Scraper():
             sleep(self.comment_timeout)
 
 def write_file(filename,data):
-#    print(filename)
+
     if not os.path.exists(filename):
         with open(filename,'w',encoding='utf-8') as f:
             line = ''
