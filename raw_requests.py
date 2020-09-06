@@ -23,7 +23,7 @@ class Scraper():
         self.s = session()
         self.videos = videos
         self.output_path = output_path
-        self.comment_output_path = os.getcwd()
+        self.comment_output_path = output_path
         self.comment_timeout = 10  # Timeout within scrape stats loop
         self.comment_prescrape_time = 60*60  # Minimum time before the start of the stream
         self.comment_time_step = 30  # Time step of comment scrape
@@ -147,7 +147,14 @@ class Scraper():
                     self.videos[c]['next-check'] = data['next-check']
                     self.videos[c]['name'] = data['channel']
                     if not first_loop:
-                        write_file('{}/{}.txt'.format(self.comment_output_path,today),data)
+                        data_to_write= {'channel': data['channel'],
+                                        'time':    data['time'],
+                                        'viewers': data['viewers'],
+                                        'likes':   data['likes'],
+                                        'dislikes':data['dislikes'],
+                                        'video_c': data['video_c']
+                                        }
+                        write_file('{}/{}.txt'.format(self.comment_output_path,today),data_to_write)
                         print("Channel:{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes']))
         
             first_loop = False
@@ -208,5 +215,5 @@ videos = [
 
          ]
 
-S = Scraper(videos=videos,output_path=os.getcwd() + '/Output/Comments')
+S = Scraper(videos=videos,output_path=os.getcwd() + '/Output/Stats')
 S.scrape_stats()

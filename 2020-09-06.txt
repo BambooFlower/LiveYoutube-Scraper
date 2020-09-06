@@ -1,3 +1,0 @@
-channel	next-check	is-live	status-code	time	viewers	likes	dislikes	video_c
-TV Rain	1599407600.8390393	True	200	1599407570.6989417	48622	28821	1536	0
-Соловьёв LIVE	1599407601.3742573	True	200	1599407571.2002738	16579	2149	246	0
