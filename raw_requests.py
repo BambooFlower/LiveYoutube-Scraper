@@ -5,6 +5,7 @@ Inspired by https://github.com/LinaTsukusu/youtube-chat
 """
 
 from requests import session
+import json
 import re
 from datetime import date
 from datetime import datetime
@@ -13,7 +14,7 @@ from time import sleep
 import os
 
 
-#headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'}
+headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'}
 
 s = session()
 
@@ -27,15 +28,31 @@ class Scraper():
         self.comment_timeout = 10  # Timeout within scrape stats loop
         self.comment_prescrape_time = 60*60  # Minimum time before the start of the stream
         self.comment_time_step = 30  # Time step of comment scrape
+        self.jsons = []
+        self.inner_json = []
         
         if not headers is None:
             s.headers = headers
         if not user_agent is None:
             s['User-Agent'] = user_agent
+            
+    def extract_jsons(self,html):
+        JSON = re.compile('window\[\"ytInitialData\"\] = ({.*?});', re.DOTALL)
+        matches = JSON.search(html)
+        json_match = matches[0].replace(';','').replace('window["ytInitialData"] = ','')
+        self.jsons = json.loads(json_match)
+        
+#        inner_tmp = self.jsons['args']['player_response']
+#        self.inner_json = json.loads(inner_tmp)
+        with open('json.txt','w') as f:
+            f.write(json.dumps(self.jsons))
+        print("done")
 
     def get_stats(self,video_id,video_c=0):
-        url = 'https://youtube.com/watch?v={}'.format(video_id)
+        url = 'https://m.youtube.com/watch?v={}'.format(video_id)
         r = self.s.get(url)
+        print(url,s.headers)
+#        self.extract_jsons(r.text)
         
         output = {'channel':video_id,
                   'next-check':None,
@@ -47,10 +64,13 @@ class Scraper():
                   'dislikes':None,
                   'video_c':video_c,
                   'next-check':None,
+                  'is-streaming':None
                   }
     
         output['status-code'] = r.status_code
         if r.status_code != 200:
+            with open('o.txt','w') as f:
+                f.write(r.text)
             print('Error {}'.format(r.status_code))
             output['is-live'] = False
             return output
@@ -58,8 +78,8 @@ class Scraper():
         watching_list = re.findall('[0-9,]+ watching now',r.text)
         likes_list = re.findall('[,0-9]+ likes',r.text)
         dislikes_list = re.findall('[,0-9]+ dislikes',r.text)
-#        with open("output.txt","w",encoding='utf-8') as f:
-#            f.write(r.text)
+        with open("output.txt","w",encoding='utf-8') as f:
+            f.write(r.text)
             
         
         channel = re.findall('[cC]hannelName":".*?"',r.text)[0].replace('"','').replace('hannelName:','').replace('c','').replace('C','')
@@ -74,8 +94,8 @@ class Scraper():
             return output
         
         output['viewers'] = num_viewers
-        
         if 'false' in re.findall('"isLiveNow":[a-z]+',r.text)[0]:
+            is_streaming = False
             if re.findall('"endTimestamp":"[0-9\-T\+:]+"',r.text) != []:
                 is_live = False
                 next_check = None
@@ -89,11 +109,13 @@ class Scraper():
                     next_check = time() + self.comment_time_step
                     
         else:
+            is_streaming = True
             is_live = True
             next_check = time() + self.comment_time_step
         
         output['is-live'] = is_live
         output['next-check'] = next_check
+        output['is-streaming'] = is_streaming
         
         try:        
             num_likes = likes_list[0].replace(' likes','').replace(',','')
@@ -147,15 +169,21 @@ class Scraper():
                     self.videos[c]['next-check'] = data['next-check']
                     self.videos[c]['name'] = data['channel']
                     if not first_loop:
-                        data_to_write= {'channel': data['channel'],
-                                        'time':    data['time'],
-                                        'viewers': data['viewers'],
-                                        'likes':   data['likes'],
-                                        'dislikes':data['dislikes'],
-                                        'video_c': data['video_c']
+                        data_to_write= {'channel':   data['channel'],
+                                        'time':      data['time'],
+                                        'viewers':   data['viewers'],
+                                        'likes':     data['likes'],
+                                        'dislikes':  data['dislikes'],
+                                        'video_c':   data['video_c'],
+                                        'streaming': data['is-streaming']
                                         }
                         write_file('{}/{}.txt'.format(self.comment_output_path,today),data_to_write)
-                        print("Channel:{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes']))
+                        
+                        if data['is-streaming']:
+                            print_msg = "Channel(Started):{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes'])
+                        else:
+                            print_msg = "Channel(Not Started):{}\tviewers:{}\tlikes:{}\tdislikes:{}".format(data['channel'],data['viewers'],data['likes'],data['dislikes'])
+                        print(print_msg)
         
             first_loop = False
             v = [i for i in range(len(self.videos))]
@@ -191,28 +219,133 @@ def write_file(filename,data):
         f.write(line)
         
 videos = [ 
-            {'id':'Q0ZuA_qBCxQ',
-            'count':0,
-            'name':'echo',
-            'next-check':None},
-
-            {'id':'yF5j7tg6eqY',
-            'count':1,
-            'name':'solovey',
-            'next-check':None},
+#            {'id':'wvlj_Z50MuA',
+#            'count':0,
+#            'name':'other',
+#            'next-check':None},
+#             
+#            {'id':'D6KMZJxdmcw',
+#            'count':0,
+#            'name':'echo',
+#            'next-check':None},
+            
+#            {'id':'ZmKi-2InLL0',
+#            'count':1,
+#            'name':'echo',
+#            'next-check':None},
+#             
+#             
+#            {'id':'TIsqcWjmx_o',
+#            'count':2,
+#            'name':'echo',
+#            'next-check':None},
+#               
+#               
+#            {'id':'nv68SmtzkVk',
+#            'count':3,
+#            'name':'echo',
+#            'next-check':None},
+#               
+#            {'id':'T3DaZ9CI5ug',
+#            'count':4,
+#            'name':'echo',
+#            'next-check':None},
+#             
+#            {'id':'lFfQpJpuJCk',
+#            'count':5,
+#            'name':'echo',
+#            'next-check':None},
+#             
+#            {'id':'14-RGfKD8oo',
+#            'count':6,
+#            'name':'echo',
+#            'next-check':None},
+#             
+#            {'id':'89gQF0L_PUE',
+#            'count':7,
+#            'name':'echo',
+#            'next-check':None},
              
-             {'id':'YiPo-vmn8yQ',
+            {'id':'eIHsDaTWnQI',
             'count':0,
             'name':'dojd',
             'next-check':None},
-             
-              {'id':'xTLY3CIQ6BM',
-            'count':0,
-            'name':'solovey',
-            'next-check':None},
+
+#            {'id':'cwtiC73RmXQ',
+#            'count':0,
+#            'name':'solovey',
+#            'next-check':None},
+#             
+#            {'id':'LxjCNLhX0f8',
+#            'count':1,
+#            'name':'solovey',
+#            'next-check':None},
+#             
+#            {'id':'xnLa1BU9JBo',
+#            'count':2,
+#            'name':'solovey',
+#            'next-check':None}, 
+#                          
+#             {'id':'fDZS1k6a_4M',
+#            'count':0,
+#            'name':'vremya',
+#            'next-check':None},
+#              
+#            {'id':'r9OW8GyULfc',
+#            'count':1,
+#            'name':'vremya',
+#            'next-check':None},
+#                          
+#                          
+#            {'id':'zVvSyDta5es',
+#            'count':2,
+#            'name':'vremya',
+#            'next-check':None},
+#             
+#            {'id':'7SVFEP-eFOM',
+#            'count':3,
+#            'name':'vremya',
+#            'next-check':None}, 
+#             
+##             
+#              {'id':'k-lp63OJdFs',
+#            'count':0,
+#            'name':'nash-dom',
+#            'next-check':None},
+##             
+#            {'id':'FNvX7S9jA7o',
+#            'count':0,
+#            'name':'football',
+#            'next-check':None},
+#             
+#            {'id':'T-0mC6lttAs',
+#            'count':0,
+#            'name':'navalny',
+#            'next-check':None},
+#             
+#             
+#            {'id':'yv-PUK_d-_4',
+#            'count':0,
+#            'name':'russia 1',
+#            'next-check':None},
+#             
+#             
+#             {'id':'ciQxYqzVzIA',
+#            'count':0,
+#            'name':'RBK',
+#            'next-check':None},
+#              
+#            {'id':'BpcpekYkwlg',
+#            'count':1,
+#            'name':'dojd',
+#            'next-check':None},
+            
+               
 
 
          ]
 
-S = Scraper(videos=videos,output_path=os.getcwd() + '/Output/Stats')
+S = Scraper(videos=videos,
+             #output_path=os.getcwd() + '/Output/Stats',
+            headers=headers)
 S.scrape_stats()
