@@ -31,10 +31,13 @@ class Scraper():
         self.jsons = []
         self.inner_json = []
         
+        
         if not headers is None:
-            s.headers = headers
+            self.s.headers = headers
         if not user_agent is None:
-            s['User-Agent'] = user_agent
+            self.s.headers['User-Agent'] = user_agent
+        else:
+            self.s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'
             
     def extract_jsons(self,html):
         JSON = re.compile('window\[\"ytInitialData\"\] = ({.*?});', re.DOTALL)
@@ -51,7 +54,7 @@ class Scraper():
     def get_stats(self,video_id,video_c=0):
         url = 'https://m.youtube.com/watch?v={}'.format(video_id)
         r = self.s.get(url)
-        print(url,s.headers)
+        #print(url,s.headers)
 #        self.extract_jsons(r.text)
         
         output = {'channel':video_id,
@@ -198,6 +201,7 @@ class Scraper():
                 break
             sleep(self.comment_timeout)
 
+
 def write_file(filename,data):
 
     if not os.path.exists(filename):
@@ -219,133 +223,16 @@ def write_file(filename,data):
         f.write(line)
         
 videos = [ 
-#            {'id':'wvlj_Z50MuA',
-#            'count':0,
-#            'name':'other',
-#            'next-check':None},
-#             
-#            {'id':'D6KMZJxdmcw',
-#            'count':0,
-#            'name':'echo',
-#            'next-check':None},
-            
-#            {'id':'ZmKi-2InLL0',
-#            'count':1,
-#            'name':'echo',
-#            'next-check':None},
-#             
-#             
-#            {'id':'TIsqcWjmx_o',
-#            'count':2,
-#            'name':'echo',
-#            'next-check':None},
-#               
-#               
-#            {'id':'nv68SmtzkVk',
-#            'count':3,
-#            'name':'echo',
-#            'next-check':None},
-#               
-#            {'id':'T3DaZ9CI5ug',
-#            'count':4,
-#            'name':'echo',
-#            'next-check':None},
-#             
-#            {'id':'lFfQpJpuJCk',
-#            'count':5,
-#            'name':'echo',
-#            'next-check':None},
-#             
-#            {'id':'14-RGfKD8oo',
-#            'count':6,
-#            'name':'echo',
-#            'next-check':None},
-#             
-#            {'id':'89gQF0L_PUE',
-#            'count':7,
-#            'name':'echo',
-#            'next-check':None},
-             
-            {'id':'eIHsDaTWnQI',
+            {'id':'KhuFoziDPYQ',
             'count':0,
-            'name':'dojd',
+            'name':'other',
             'next-check':None},
-
-#            {'id':'cwtiC73RmXQ',
-#            'count':0,
-#            'name':'solovey',
-#            'next-check':None},
-#             
-#            {'id':'LxjCNLhX0f8',
-#            'count':1,
-#            'name':'solovey',
-#            'next-check':None},
-#             
-#            {'id':'xnLa1BU9JBo',
-#            'count':2,
-#            'name':'solovey',
-#            'next-check':None}, 
-#                          
-#             {'id':'fDZS1k6a_4M',
-#            'count':0,
-#            'name':'vremya',
-#            'next-check':None},
-#              
-#            {'id':'r9OW8GyULfc',
-#            'count':1,
-#            'name':'vremya',
-#            'next-check':None},
-#                          
-#                          
-#            {'id':'zVvSyDta5es',
-#            'count':2,
-#            'name':'vremya',
-#            'next-check':None},
-#             
-#            {'id':'7SVFEP-eFOM',
-#            'count':3,
-#            'name':'vremya',
-#            'next-check':None}, 
-#             
-##             
-#              {'id':'k-lp63OJdFs',
-#            'count':0,
-#            'name':'nash-dom',
-#            'next-check':None},
-##             
-#            {'id':'FNvX7S9jA7o',
-#            'count':0,
-#            'name':'football',
-#            'next-check':None},
-#             
-#            {'id':'T-0mC6lttAs',
-#            'count':0,
-#            'name':'navalny',
-#            'next-check':None},
-#             
-#             
-#            {'id':'yv-PUK_d-_4',
-#            'count':0,
-#            'name':'russia 1',
-#            'next-check':None},
-#             
-#             
-#             {'id':'ciQxYqzVzIA',
-#            'count':0,
-#            'name':'RBK',
-#            'next-check':None},
-#              
-#            {'id':'BpcpekYkwlg',
-#            'count':1,
-#            'name':'dojd',
-#            'next-check':None},
-            
-               
-
 
          ]
 
 S = Scraper(videos=videos,
              #output_path=os.getcwd() + '/Output/Stats',
-            headers=headers)
-S.scrape_stats()
+            headers=headers
+            )
+#S.scrape_stats()
+#S.get_comment_sect(videos[0]['id'])
