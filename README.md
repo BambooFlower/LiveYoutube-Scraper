@@ -18,8 +18,16 @@ L = LiveMachine(livestream_id)
 L.request_stats()
 # Start comments loop
 L.request_comments()
+```
 
-while 1:
-	all_comment = L.get_comments()
-	all_stats = L.get_stats()
+Script will start "watching" the stream. To get all of the comments and stats so far 
+
+```python
+all_comments = L.get_comments()
+all_stats = L.get_stats()
+```
+
+To stop the script
+```python
+L.stop = True
 ```
