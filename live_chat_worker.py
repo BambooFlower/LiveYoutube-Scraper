@@ -7,12 +7,13 @@ Worker class which immitates the browser behaviour
 """
 from requests import session
 import re
-import json
 from random import random
 from urllib.parse import urlparse
 from time import sleep
 from time import time
+import json
 import threading
+from CommentsParser import parse_response
 
 class RequestJSONGenerator():
     def __init__(self,data):
@@ -112,13 +113,15 @@ class RequestJSONGenerator():
                 }        
         
         context = {
-                'client':client,
-                'clientScreenNonce':self.clientScreenNonce,
-                'request':request,      
-                'user':{},
+                    'context':{
+                    'client':client,
+                    'clientScreenNonce':self.clientScreenNonce,
+                    'request':request,      
+                    'user':{},
+                    },
                 'hidden':False
-                }        
-        return {'context':context}
+                }
+        return context
     
     def update_metadata(self,continuation):
         try:
@@ -149,6 +152,7 @@ class LiveMachine():
         self.channel_id = ''
         self.video_name = ''
         self.is_live = False
+        self.comments_enabled = False
         self.timestamp_start = ''
         
         self.num_viewers = 0
@@ -159,6 +163,7 @@ class LiveMachine():
         
         self.stop = False  ## Stop flag...
         self.stats_waiting = False
+        self.comments_waiting = False
         
         self.get_initial_data()
         
@@ -168,9 +173,11 @@ class LiveMachine():
         self.get_initial_comment_continuation()
         
         
+        self.stats_timeout = 0
         self.comment_timeout = 0
         
         self.stats_hist = []
+        self.comments_hist = []
         
                 
         dataForJSON = {
@@ -189,6 +196,10 @@ class LiveMachine():
     def get_user_agent(self):
         # Might want to find a better way to initialise a User-Agent
         return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0'
+    
+    def update_comment_continuation(self,continuation):
+        self.req_comment_continuation = continuation
+        pass
     
     def get_initial_comment_continuation(self,dbg=False):
         # Set headers
@@ -214,15 +225,22 @@ class LiveMachine():
         
         resp_html = r.text
         
+        if 'Chat is disabled for this live stream.' in r.text:
+            self.comments_enabled = False
+        else:
+            self.comments_enabled = True
+        
         # Find continuation parameter in HTML
         try:
             match = re.findall('"continuation":"[aA0-zZ9_]+"',resp_html)[0]
-            self.req_comment_continuation = match.replace('"','').replace(':','').replace('continuation','')
+            tmp_val = match.replace('"','').replace(':','').replace('continuation','')
+            self.update_comment_continuation(tmp_val)
         except IndexError:
             if dbg:
                 print("Can't find the 'continuation' in the initial request, " +
                   'reverting to 0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC')
-            self.req_comment_continuation = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
+            tmp_val = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
+            self.update_comment_continuation(tmp_val)
         
     
     def get_initial_data(self,dbg=False):
@@ -340,7 +358,6 @@ class LiveMachine():
             self.num_og_dislikes = match.replace(' dislikes','').replace(',','')
             if 'No' in self.num_og_dislikes:
                 self.num_og_dislikes = 0
-            print(self.num_og_dislikes)
         except IndexError:
             if dbg:
                 print("Can't find the number of dislikes, reverting to 0")
@@ -430,7 +447,7 @@ class LiveMachine():
 
         
     def stats_worker(self,url):
-        for i in range(2):
+        while 1:
             self.stats_waiting = False
             r = self.session_stats.post(url,json=self.req_json.metadata)
             
@@ -443,7 +460,7 @@ class LiveMachine():
             # Update continuation value
             tmp = resp_json['continuation']['timedContinuationData']
             continuation = tmp['continuation']
-            self.comment_timeout = tmp['timeoutMs']//1000
+            self.stats_timeout = tmp['timeoutMs']/1000
             
             self.req_stats_continuation = continuation
             self.req_json.update_metadata(self.req_stats_continuation)
@@ -482,7 +499,7 @@ class LiveMachine():
             except IndexError:
                 pass
             
-            print(self.num_likes,self.num_dislikes,self.num_viewers,self.video_name)
+#            print(self.num_likes,self.num_dislikes,self.num_viewers,self.video_name)
             
             if self.stop:
                 1/0
@@ -500,14 +517,135 @@ class LiveMachine():
             
             self.stats_waiting = True
             # Set timeout
-            sleep(self.comment_timeout)
-    
+            sleep(self.stats_timeout)
+            
+    def request_second_continuation(self):
+        headers = {
+                'Host': 'www.youtube.com',
+                'User-Agent': self.user_agent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-GB,en;q=0.5',
+#                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': '{}watch?v={}'.format(self.base_url,self.video_id),
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'TE': 'Trailers'
+                }
+        self.session_comments.headers = headers
+        
+        url = '{}live_chat?continuation={}'.format(self.base_url,self.req_comment_continuation)
+        
+        r = self.session_comments.get(url)
+        
+        if r.status_code != 200:
+            print('oh dear... can`t find initial comments continuation... Error {}'.format(r.status_code))
+            exit(r.status_code)
+        
+        resp_html = r.text
+        
+        # Extract continuation
+        matches = re.findall('continuations\":(\[.*?\])',resp_html)
+        
+        while 1:
+            try:
+                cont_json = json.loads(matches[0])
+                break
+            except:
+                print('failed to find continuation.. retrying in 5 seconds')
+                sleep(5)
+                
+        
+        self.comment_timeout = cont_json[0]['timedContinuationData']['timeoutMs']/1000
+        continuation = cont_json[0]['timedContinuationData']['continuation']
+        self.update_comment_continuation(continuation)
     def request_comments(self):
-        pass
+        # Make initial comment request
+        self.request_second_continuation()
+        referer_url = '{}live_chat?continuation={}'.format(self.base_url,self.req_comment_continuation)
+        sleep(self.comment_timeout)
+        # Set headers
+        headers = {
+                'Host': 'www.youtube.com',
+                'User-Agent': self.user_agent,
+                'Accept': '*/*',
+                'Accept-Language': 'en-GB,en;q=0.5',
+#                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': referer_url,
+                'Content-Type': 'application/json',
+                'X-Goog-Visitor-Id': urlparse(self.req_visitorData).geturl(),
+                'Origin': 'https://www.youtube.com',
+                'Connection': 'keep-alive',
+                'TE': 'Trailers'
+                }
+        self.session_comments.headers = headers
         
+        part_url = '{}youtubei/v1/live_chat/get_live_chat?{}'
+        param_commandMetadata = 'commandMetadata=%5Bobject%20Object%5D'
+        param_continuation = 'continuation={}'.format(self.req_comment_continuation)
+        param_pbj = 'pbj=1'
+        param_key = 'key={}'.format(self.req_key)
+        url_params = '{}&{}&{}&{}'.format(param_commandMetadata,param_continuation,
+                                      param_pbj,param_key)
+        url = part_url.format(self.base_url,url_params)
+        x = threading.Thread(target=self.comments_worker,args=(url,))
+        x.start()
         
-L = LiveMachine('qcnaQWlH_qI')
+    def comments_worker(self,url):
+        while 1:
+            self.comments_waiting = False
+            r = self.session_stats.post(url,json=self.req_json.stats)
+            
+            if r.status_code != 200:
+                print('YouTube says {} to metadata'.format(r.status_code))
+                exit(r.status_code)
+            
+            resp_json = r.json()
+            
+            # Find continuation
+            liveChatContinuation  = resp_json['continuationContents']['liveChatContinuation']
+            tmp_json = liveChatContinuation['continuations'][0]['timedContinuationData']
+            self.comment_timeout = tmp_json['timeoutMs']/1000
+            continuation = tmp_json['continuation']
+            self.update_comment_continuation(continuation)
+            
+#            comments_json = liveChatContinuation['actions']
+#            num_comments = len(comments_json)
+            #print('{} new comments'.format(num_comments))
+            self.add_comments(parse_response(resp_json))
+            if self.stop:
+                1/0
+            self.comments_waiting = True
+            sleep(self.comment_timeout)
+            
+    def add_comments(self,data):
+        for d in data:
+            self.comments_hist.append(data)
+    
+    def get_comments(self):
+#        if self.comments_waiting:
+#            o = self.comments_hist[:]
+#            self.comments_hist = []
+#        else:
+#            o = []
+        o = self.comments_hist
+        return o
+    
+    def get_stats(self):
+#        if self.stats_waiting:
+#            o = self.stats_hist[:]
+#            self.stats_hist = []
+#        else:
+#            o = []
+        o = self.stats_hist
+        return o
+            
+        
+L = LiveMachine('vltJw2n6X28')
 L.request_stats()
+if L.comments_enabled:
+    L.request_comments()
+else:
+    print('Comments aren`t enabled')
 
 
 
