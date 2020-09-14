@@ -1,7 +1,18 @@
 # LiveYoutube Scraper
-Scrape YouTube Live without API. 
+Scrape YouTube Live without API. Your last hope when you can't use the official [YouTube API](https://developers.google.com/youtube)
+or Selenium. Let me know if you get any errors, YouTube is constantly changing their backend.
 
-# Options
-1) Scrape stats (number of people watching, number of likes/dislikes)
+# Installation
+`pip install -i https://test.pypi.org/simple/ YTLiveScrape`
 
-2) Scrape comments as they come in
+# Example
+
+```python
+from YTLiveScrape.live_chat_worker import LiveMachine
+
+livestream_id = '3GgSphuyBiY'  # from e.g. https://www.youtube.com/watch?v=3GgSphuyBiY
+
+L = LiveMachine(livestream_id)
+L.request_stats()
+L.request_comments()
+```

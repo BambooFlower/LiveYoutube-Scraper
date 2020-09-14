@@ -13,7 +13,7 @@ from time import sleep
 from time import time
 import json
 import threading
-from CommentsParser import parse_response
+from YTLiveScrape.CommentsParser import parse_response
 
 class RequestJSONGenerator():
     def __init__(self,data):
@@ -133,6 +133,7 @@ class RequestJSONGenerator():
 
 class LiveMachine():
     def __init__(self,video_id):
+        print('Initialising LiveMachine for {}'.format(video_id))
         self.session = session()
         self.base_url = 'https://www.youtube.com/'
         self.video_id = video_id
@@ -640,69 +641,15 @@ class LiveMachine():
         return o
             
         
-L = LiveMachine('vltJw2n6X28')
-L.request_stats()
-if L.comments_enabled:
-    L.request_comments()
-else:
-    print('Comments aren`t enabled')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-#
-#class LiveChatMachine(LiveMachine):
-#    def __init__(self,vid_id,headers=None,user_agent=None):
-#        self.visitor_data = None
-#        self.session_id = None
-#        self.csn = None
-#        self.tracking_params = None
-#        self.vid_id = vid_id
-#        self.s = session()
-#        
-#        if not headers is None:
-#            self.s.headers = headers
-#        if user_agent is None:
-#            self.s.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'
-#        else:
-#            self.s.headers['User-Agent'] = user_agent
-#    
-#    def get_comment_sect(self,continuation=None):
-#        url = 'https://www.youtube.com/live_chat?v={}'.format(self.vid_id)
-##        html_resp = self.s.get(url)
-##        if continuation is None:
-##            # Find continuation
-##            pass
-##        
-##        if self.session_id is None:
-##            pass
-#            
-##        url = 'https://www.youtube.com/live_chat?v={}&pbj=1'.format(vid_id)
-#
-##        r=self.s.get(url)
-#        
-#        # Parse JSON
-#        #file = r.json()
-#    
-##        with open("o.txt","w") as f:
-##            f.write(json.dumps(file))
+if __name__ == '__main__':
+    L = LiveMachine('3GgSphuyBiY')
+    if L.is_live:
+        L.request_stats()
+        if L.comments_enabled:
+            L.request_comments()
+        else:
+            print('Comments aren`t enabled')
+    else:
+        print('Stream is offline')
+    
+    #L.stop = True
