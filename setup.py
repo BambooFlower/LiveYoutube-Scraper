@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-import sys
 import os
 from setuptools import setup, find_packages
 
 required_modules = ['requests', 'python-dateutil', 'six', 'cached-property']
 
-version = '0.0.3'
+version = '0.0.4'
 
 with open(os.path.join(os.path.dirname(__file__), 'README.md')) as file:
     long_description = file.read()

@@ -20,14 +20,14 @@ L.request_stats()
 L.request_comments()
 ```
 
-Script will start "watching" the stream. To get all of the comments and stats so far 
+Get new comments and stats
 
 ```python
-all_comments = L.get_comments()
-all_stats = L.get_stats()
+comments = L.get_comments()
+stats = L.get_stats()
 ```
 
 To stop the script
 ```python
-L.stop = True
+L.stop_scrape()
 ```
