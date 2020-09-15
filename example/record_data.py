@@ -7,14 +7,16 @@ import threading
 
 todaydate = datetime.today().strftime('%Y-%m-%d')
 
-livestream_id = '3GgSphuyBiY'  # from e.g. https://www.youtube.com/watch?v=3GgSphuyBiY
-livestream_id = '3GgSphuyBiY'
-
-live_stream_ids = ['3GgSphuyBiY']
+live_stream_ids = [#'38ICBymhD9Q',
+                   'Ed5euGd4s4o',
+                   #'NeST_YmwOuc','KFSx2YjNgno',
+                   #'zeOCUu6IVVg','M3BIFYIX_sE',
+                   #'G3DXNgVNPII'
+                   ]
 
 LiveMachines = []
 for live_stream_id in live_stream_ids:
-    LiveMachines.append(LiveMachine(livestream_id))
+    LiveMachines.append(LiveMachine(live_stream_id))
 
 for L in LiveMachines:    
     if L.has_data:
@@ -46,12 +48,13 @@ def write_file(filename,data):
         line +=  "\n"
         f.write(line)
 
-global run
 run = True
 
 def stop():
     global run
     run = False
+    for L in LiveMachines:
+        L.stop_scrape()
 
 def update_comments():
     filename = 'comments/{}'.format(todaydate)
@@ -65,7 +68,9 @@ def update_comments():
                 comment['channel'] = L.channel_id
                 comment['video'] = L.video_id
                 write_file('{}.txt'.format(filename),comment)
-            print('{} has {} new comments'.format(L.video_id,len(comments)))
+            if L.comments_enabled:
+#                print('{} has {} new comments'.format(L.video_id,len(comments)))
+                pass
         time.sleep(5)
         
 def update_viewers():
@@ -87,3 +92,5 @@ x = threading.Thread(target=update_comments)
 y = threading.Thread(target=update_viewers)
 x.start()
 y.start()
+
+#stop()

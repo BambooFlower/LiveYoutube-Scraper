@@ -170,7 +170,7 @@ class LiveMachine():
         
         resp_html = r.text
         
-        if not ('watching' in resp_html or 'waiting' in resp_html) or 'Streamed' in resp_html:
+        if not ('watching' in resp_html or 'waiting' in resp_html):
             self.status['code'] = 6
             self.status['text'] = 'no live data'
             self.is_live = False
