@@ -1,0 +1,5 @@
+clientId	timestamp	photo	authorName	message	value	is-member	channelId	channel	video
+CNz5ouz36usCFYp_mAodmnUCDA1600165809271	1600165810189469	https://yt3.ggpht.com/-0oCfHuPnbs4/AAAAAAAAAAI/AAAAAAAAAAA/cHrT-GST6Yo/s32-c-k-no-mo-rj-c0xffffff/photo.jpg	Dragon. Artist	cool👍 		False		UCvSSvGOwQEaQ2mRpMc3SeSQ	3GgSphuyBiY
+CO3gzOj46usCFUhoaAodHVUIzw1600165814136	1600165814999871	https://yt3.ggpht.com/-goVrV5zOs_Q/AAAAAAAAAAI/AAAAAAAAAAA/lDEqqBQIFaU/s32-c-k-no-mo-rj-c0xffffff/photo.jpg	Subburaj Suresh	wowwww...😲😲😲 		False		UCvSSvGOwQEaQ2mRpMc3SeSQ	3GgSphuyBiY
+CIeg6_L46usCFWIItwAdW5wEUw1600165799929	1600165816337196	https://yt3.ggpht.com/-4V4ATSBV86w/AAAAAAAAAAI/AAAAAAAAAAA/31gUPmOziPk/s32-c-k-no-mo-rj-c0xffffff/photo.jpg	Pragya Shukla	bahht khush hu ..msc karke...q tum ro rahe ho 		False		UCvSSvGOwQEaQ2mRpMc3SeSQ	3GgSphuyBiY
+COmo2oj46usCFZEe1QodvFkAug1600165813079	1600165816525911	https://yt3.ggpht.com/-DBKljRhl2Yc/AAAAAAAAAAI/AAAAAAAAAAA/05RtpGIY98w/s32-c-k-no-mo-rj-c0xffffff/photo.jpg	study with javed	@pragya sambhal k dance kro gir jaogi 		False		UCvSSvGOwQEaQ2mRpMc3SeSQ	3GgSphuyBiY
