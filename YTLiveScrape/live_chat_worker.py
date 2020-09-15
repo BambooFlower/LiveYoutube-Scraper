@@ -37,8 +37,10 @@ class LiveMachine():
         self.req_visitorData = None
 
         self.channel_id = ''
+        self.video_author = ''
         self.video_name = ''
         self.is_live = False
+        self.is_a_stream = False
         self.comments_enabled = False
         self.timestamp_start = ''
         
@@ -167,14 +169,58 @@ class LiveMachine():
             self.status['text'] = 'YouTube frowns with Error {} on its face'.format(r.status_code)
             self.stop_scrape()
             return
-        
+                
         resp_html = r.text
         
-        if not ('watching' in resp_html or 'waiting' in resp_html):
+        with open('o.html','w',encoding='utf8') as f:
+            f.write(resp_html)
+        
+        # Check if video is a live content
+        # Find key parameter -- "innertubeApiKey"
+        try:
+            match = re.findall('"isLiveContent":[truefalse]+',resp_html)[0]
+            tmp = match.replace('"','').replace(':','').replace('isLiveContent','')
+            if tmp == 'true':
+                self.is_a_stream = True
+            elif tmp == 'false':
+                self.is_a_stream = False
+                return
+            else:
+                print('cannot decide whether {} is a stream'.format(self.video_id))
+                self.status['code'] = 7
+                self.status['text'] = 'cannot decide whether video is a stream'
+                return
+        except IndexError:
+            if dbg:
+                print("Can't find the 'isLiveContent' in the initial request, " +
+                  'reverting to False')
+            self.status['warnings'].append('Can\'t find the \'isLiveContent\' in the initial request')
+            self.is_a_stream = False
+        
+        try:
+            match = re.findall('"isLiveContent":[truefalse]+',resp_html)[0]
+        except:
+            self.status['code'] = 6
+            self.status['text'] = 'cannot load the page {} probably wrong url'.format(self.video_id)
+            return
+        tmp = match.replace('"','').replace(':','').replace('isLiveContent','')
+        
+        if 'endTimestamp' in resp_html:
             self.status['code'] = 6
             self.status['text'] = 'no live data'
             self.is_live = False
             return
+        
+        # Find channel Id -- browseId
+        try:
+            match = re.findall('"browseId":"(.*?)"',resp_html)[0]
+            self.channel_id = match.replace('"','').replace(':','').replace('browseId','')
+        except IndexError:
+            if dbg:
+                print("Can't find the 'browseId/channel_id' in the initial request, " +
+                  '')
+            self.status['warnings'].append('failed to find the channel id')
+            self.channel_id = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
         
         # Find key parameter -- "innertubeApiKey"
         try:
@@ -235,28 +281,21 @@ class LiveMachine():
             self.status['warnings'].append('Can\'t find the \'VISITOR_DATA/visitorData\' in the initial request')
             self.req_visitorData = 'CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D'
 #        print(self.req_visitorData)
-            
+        
+#        with open('o.html','w',encoding='utf-8') as f:
+#            f.write(resp_html)
         # find channelId-- in channelId
-        try:
-            match = re.findall('"channelId":"[aA0-zZ9]+"',resp_html)[0]            
-            self.channel_id = match.replace('"','').replace(':','').replace('channelId','')
-        except IndexError:
-            if dbg:
-                print("Can't find the 'channelId/channelId' in the initial request, " +
-                  'reverting to NO_CHANNEL')
-            self.status['warnings'].append('Can\'t find the \'channelId/channelId\' in the initial request')
-            self.channel_id = 'NO_CHANNEL'
-#        print(self.req_visitorData)
+
 
         # find channelId-- in channelId
         try:
-            match = re.findall('"channelId":"[aA0-zZ9]+"',resp_html)[0]            
-            self.channel_id = match.replace('"','').replace(':','').replace('channelId','')
+            match = re.findall('author":"(.*?)"',resp_html)[0]            
+            self.video_author = match.replace('"','').replace(':','').replace('author','')
         except IndexError:
             if dbg:
-                print("Can't find the channelId, reverting to 'NO_CHANNEL'")
+                print("Can't find the author, reverting to 'NO_CHANNEL'")
             self.status['warnings'].append('Can\'t find the channelId, reverting to \'NO_CHANNEL\'')
-            self.channel_id = 'NO_CHANNEL'
+            self.video_author = 'NO_CHANNEL'
 #        print(self.req_visitorData)
         
         # find likes in HTML
@@ -344,6 +383,9 @@ class LiveMachine():
         pass
         
     def request_stats(self):
+        if not self.is_a_stream:
+            print('{} is not a stream. cannot track live stats'.format(self.video_id))
+            return
         if not self.has_data:
             raise NotImplementedError('I will implement scraping of old streams later. for now only works with `L.has_data==True`')
         # Create headers
@@ -435,7 +477,7 @@ class LiveMachine():
             ## Video title
             try:
                 self.video_name = resp_json['actions'][4]['updateTitleAction']['title']['simpleText']
-            except IndexError:
+            except KeyError:
                 pass
             
 #            print(self.num_likes,self.num_dislikes,self.num_viewers,self.video_name)
@@ -548,6 +590,9 @@ class LiveMachine():
         return 0
     
     def request_comments(self):
+        if not self.is_a_stream:
+            print('{} is not a stream. cannot track live comments'.format(self.video_id))
+            return
         if not self.has_data:
             raise NotImplementedError('I will implement scraping of old streams later. for now only works with `L.has_data==True`')
         # Make initial comment request
@@ -653,7 +698,7 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('IcKj0GrQW5c')
+    L = LiveMachine('kBDY5SsI7Q0')
     if L.has_data:
         L.request_stats()
         if L.comments_enabled:
