@@ -14,125 +14,7 @@ from time import time
 import json
 import threading
 from YTLiveScrape.CommentsParser import parse_response
-
-class RequestJSONGenerator():
-    def __init__(self,data):
-        self.clickTrackingParams = data['clickTrackingParams']
-        self.visitordata = data['visitorData']
-        self.clientScreenNonce = data['clientScreenNonce']
-        self.sessionId = data['sessionId']
-        self.userAgent = data['userAgent']
-        self.videoId = data['videoId']
-        self.continuation = data['continuation']
-        
-        self.browserName = 'Firefox'
-        self.browserVersion = '78.0'
-        self.clientName = 'WEB'
-        self.clientVersion = '2.20200911.04.00'
-        self.gl = 'GB'
-        self.hl = 'en-GB'
-        self.osName = 'Windows'
-        self.osVersion = '10.0'
-        self.screenHeightPoints = 1080
-        self.screenPixelDensity = 1
-        self.screenWidthPoints = 1920
-        self.userInterfaceTheme = 'USER_INTERFACE_THEME_LIGHT'
-        self.utcOffsetMinutes = 60
-        
-        self.continuation = None
-        
-        self.comments_running = False
-        self.stats_running = False
-        
-        self.metadata = self.gen_metadata_json()
-        self.stats = self.gen_stats_json()
-    
-    def gen_metadata_json(self):
-        adSignalsInfo = {
-                'consentBumpParams':{
-                        'consentDay':'4',
-                        'consentHostnameOverride':'https://www.youtube.com',
-                        'urlOverride':''
-                        }
-                }
-        clickTracking = {
-                'clickTracking':self.clickTrackingParams
-                }
-        client={
-            'browserName':self.browserName,
-            'browserVersion':self.browserVersion,
-            'clientName':self.clientName,
-            'clientVersion':self.clientVersion,
-            'gl':self.gl,
-            'hl':self.hl,
-            'osName':self.osName,
-            'osVersion':self.osVersion,
-            'screenHeightPoints':self.screenHeightPoints,
-            'screenPixelDensity':self.screenPixelDensity,
-            'screenWidthPoints':self.screenWidthPoints,
-            'userAgent':self.userAgent,
-            'userInterfaceTheme':self.userInterfaceTheme,
-            'utcOffsetMinutes':self.utcOffsetMinutes,
-            'visitorData':self.visitordata
-        }
-        request = {
-                'consistencyTokenJars':[],
-                'internalExperimentFlags':[],
-                'sessionId':self.sessionId
-                }        
-        
-        context = {
-                'adSignalsInfo':adSignalsInfo,
-                'clickTracking':clickTracking,
-                'client':client,
-                'clientScreenNonce':self.clientScreenNonce,
-                'request':request,      
-                'user':{}
-                }        
-        return {'context':context,'videoId':self.videoId}
-    
-    def gen_stats_json(self):
-        client={
-            'browserName':self.browserName,
-            'browserVersion':self.browserVersion,
-            'clientName':self.clientName,
-            'clientVersion':self.clientVersion,
-            'gl':self.gl,
-            'hl':self.hl,
-            'osName':self.osName,
-            'osVersion':self.osVersion,
-            'screenHeightPoints':self.screenHeightPoints,
-            'screenPixelDensity':self.screenPixelDensity,
-            'screenWidthPoints':self.screenWidthPoints,
-            'userAgent':self.userAgent,
-            'userInterfaceTheme':self.userInterfaceTheme,
-            'utcOffsetMinutes':self.utcOffsetMinutes,
-            'visitorData':self.visitordata
-        }
-        request = {
-                'consistencyTokenJars':[],
-                'internalExperimentFlags':[],
-                'sessionId':self.sessionId
-                }        
-        
-        context = {
-                    'context':{
-                    'client':client,
-                    'clientScreenNonce':self.clientScreenNonce,
-                    'request':request,      
-                    'user':{},
-                    },
-                'hidden':False
-                }
-        return context
-    
-    def update_metadata(self,continuation):
-        try:
-            self.metadata.pop('videoId')
-        except KeyError:
-            pass
-        self.metadata['continuation'] = continuation
-        
+from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator        
 
 class LiveMachine():
     def __init__(self,video_id):
@@ -144,6 +26,7 @@ class LiveMachine():
         
         self.user_agent = self.get_user_agent()
         
+        self.status = {'code':0,'text':'all is good','warnings':[]}
         self.req_key = None
         self.req_serializedEventId = None
         self.req_sessionId = None
@@ -170,6 +53,12 @@ class LiveMachine():
         self.comments_waiting = False
         
         self.get_initial_data()
+        if self.status['code'] == 6:
+            print(self.status['text'])
+            self.has_data = False
+            return
+        else:
+            self.has_data = True
         
         self.session_stats = self.session
         self.session_comments = self.session
@@ -182,7 +71,7 @@ class LiveMachine():
         
         self.stats_hist = []
         self.comments_hist = []
-        
+                
                 
         dataForJSON = {
                 'clickTrackingParams':self.req_clickTrackingParams,
@@ -228,7 +117,10 @@ class LiveMachine():
         
         if r.status_code != 200:
             print('YouTube says {}. bad user!')
-            exit(r.status_code)
+            self.status['code'] = r.status_code
+            self.status['text'] = 'failed to get initial comment continuation.'
+            self.stop_scrape()
+            return
         
         resp_html = r.text
         
@@ -246,6 +138,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'continuation' in the initial request, " +
                   'reverting to 0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC')
+            self.status['warnings'].append('Can\'t find the \'continuation\' in the initial request')
             tmp_val = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
             self.update_comment_continuation(tmp_val)
         
@@ -268,9 +161,18 @@ class LiveMachine():
                 
         if r.status_code != 200:
             print('YouTube frowns with Error {} on its face'.format(r.status_code))
-            exit(r.status_code)
+            self.status['code'] = r.status_code
+            self.status['text'] = 'YouTube frowns with Error {} on its face'.format(r.status_code)
+            self.stop_scrape()
+            return
         
         resp_html = r.text
+        
+        if not ('watching' in resp_html or 'waiting' in resp_html) or 'Streamed' in resp_html:
+            self.status['code'] = 6
+            self.status['text'] = 'no live data'
+            self.is_live = False
+            return
         
         # Find key parameter -- "innertubeApiKey"
         try:
@@ -280,6 +182,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'innertubeApiKey/key' in the initial request, " +
                   'reverting to AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8')
+            self.status['warnings'].append('Can\'t find the \'innertubeApiKey/key\' in the initial request')
             self.req_key = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
 #        print(self.req_key)
         
@@ -291,6 +194,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'EVENT_ID/serializedEventId' in the initial request, "+
                   'reverting to 5_NdX_76Mczj0wXb26bwCA')
+            self.status['warnings'].append('Can\'t find the \'EVENT_ID/serializedEventId\' in the initial request')
             self.req_serializedEventId = '5_NdX_76Mczj0wXb26bwCA'
 #        print(self.req_serializedEventId)
         
@@ -302,6 +206,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'sessionId/sessionId' in the initial request, "+
                   'reverting to 6871917207188534706')
+            self.status['warnings'].append('Can\'t find the \'sessionId/sessionId\' in the initial request')
             self.req_sessionId = '6871917207188534706'
 #        print(self.req_sessionId)
         
@@ -313,6 +218,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'clickTrackingParams/clickTrackingParams' in the initial request, " + 
                   'reverting to CB0QtSwYACITCNvViKL25esCFUW8VQodD_8N5w==')
+            self.status['warnings'].append('Can\'t find the \'clickTrackingParams/clickTrackingParams\' in the initial request')
             self.req_clickTrackingParams = 'CB0QtSwYACITCNvViKL25esCFUW8VQodD_8N5w=='
 #        print(self.req_clickTrackingParams)
                 
@@ -324,6 +230,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'VISITOR_DATA/visitorData' in the initial request, " +
                   'reverting to CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D')
+            self.status['warnings'].append('Can\'t find the \'VISITOR_DATA/visitorData\' in the initial request')
             self.req_visitorData = 'CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D'
 #        print(self.req_visitorData)
             
@@ -335,6 +242,7 @@ class LiveMachine():
             if dbg:
                 print("Can't find the 'channelId/channelId' in the initial request, " +
                   'reverting to NO_CHANNEL')
+            self.status['warnings'].append('Can\'t find the \'channelId/channelId\' in the initial request')
             self.channel_id = 'NO_CHANNEL'
 #        print(self.req_visitorData)
 
@@ -344,7 +252,8 @@ class LiveMachine():
             self.channel_id = match.replace('"','').replace(':','').replace('channelId','')
         except IndexError:
             if dbg:
-                print("Can't find the number of likes, reverting to 0")
+                print("Can't find the channelId, reverting to 'NO_CHANNEL'")
+            self.status['warnings'].append('Can\'t find the channelId, reverting to \'NO_CHANNEL\'')
             self.channel_id = 'NO_CHANNEL'
 #        print(self.req_visitorData)
         
@@ -357,6 +266,7 @@ class LiveMachine():
         except IndexError:
             if dbg:
                 print("Can't find the number of likes, reverting to 0")
+            self.status['warnings'].append('Can\'t find the number of likes, reverting to 0')
             self.num_og_likes = 0
 #        print(self.num_og_likes)
         
@@ -369,6 +279,7 @@ class LiveMachine():
         except IndexError:
             if dbg:
                 print("Can't find the number of dislikes, reverting to 0")
+            self.status['warnings'].append('Can\'t find the number of dislikes, reverting to 0')
             self.num_og_dislikes = 0
 #        print(self.num_og_dislikes)
             
@@ -378,7 +289,8 @@ class LiveMachine():
             self.timestamp_start = match.replace('startTimestamp','').replace('"','').replace(':','')
         except IndexError:
             if dbg:
-                print("Can't find the number of dislikes, reverting to ''")
+                print("Can't find the startTimestamp, reverting to ''")
+            self.status['warnings'].append('Can\'t find the startTimestamp, reverting to \'\'')
             self.timestamp_start = ''
 #        print(self.timestamp_start)
         
@@ -430,6 +342,8 @@ class LiveMachine():
         pass
         
     def request_stats(self):
+        if not self.has_data:
+            raise NotImplementedError('I will implement scraping of old streams later. for now only works with `L.has_data==True`')
         # Create headers
         headers = {        
             'Host': 'www.youtube.com',
@@ -458,6 +372,8 @@ class LiveMachine():
         while 1:
             if self.stop:
                 self.stats_running = False
+                self.status['code'] = -1
+                self.status['text'] = 'stopped'
                 break
             
             self.stats_running = True
@@ -470,10 +386,18 @@ class LiveMachine():
             
             resp_json = r.json()
             
-            # Update continuation value
-            tmp = resp_json['continuation']['timedContinuationData']
-            continuation = tmp['continuation']
-            self.stats_timeout = tmp['timeoutMs']/1000
+            try:
+                # Update continuation value
+                tmp = resp_json['continuation']['timedContinuationData']
+                continuation = tmp['continuation']
+                self.stats_timeout = tmp['timeoutMs']/1000
+            except:
+                self.stats_running = False
+                self.comments_running = False
+                self.stop_scrape()
+                self.status['code'] = 2
+                self.status['text'] = 'stream is offline'
+                return
             
             self.req_stats_continuation = continuation
             self.req_json.update_metadata(self.req_stats_continuation)
@@ -547,13 +471,17 @@ class LiveMachine():
         r = self.session_comments.get(url)
         
         if r.status_code != 200:
-            print('oh dear... can`t find initial comments continuation... Error {}'.format(r.status_code))
-            exit(r.status_code)
+            msg = 'oh dear... can`t find initial comments continuation... Error {}'.format(r.status_code)
+            print(msg)
+            self.status['code'] = r.status_code
+            self.status['text'] = msg
+            return
+#            exit(r.status_code)
         
         resp_html = r.text
         
-        with open('o.html','w',encoding='utf8') as f:
-            f.write(resp_html)
+#        with open('o.html','w',encoding='utf8') as f:
+#            f.write(resp_html)
         
         # Extract continuation
 #        matches = re.findall('continuations\":(\[.*?\])',resp_html)
@@ -570,15 +498,16 @@ class LiveMachine():
         try:
             matches = re.findall('\"(timeoutMs.*?")\,"clickTrackingParam',resp_html)
             cont_json = json.loads(matches[0])
-        
             self.comment_timeout = cont_json['timeoutMs']/1000
             continuation = cont_json['continuation']
-            print(continuation)
             self.update_comment_continuation(continuation)
         except:
-            continuation = '0ofMyAPGARpyQ2pnS0RRb0xTSEJtTmxRd1gzQllWRlVxSndvWVZVTm5lRlJRVkVaaVNXSkRWMlpVVWpsSk1pMDFVMlZSRWd0SWNHWTJWREJmY0ZoVVZSb1Q2cWpkdVFFTkNndEljR1kyVkRCZmNGaFVWU0FCS0FJJTNEKOmavZj_6OsCMAA4AEACShsIARAAGAAgADoAQABKAFDZl-Kd_-jrAlgDeABQ48SMmf_o6wJYkciam_3o6wJoBIIBAggEiAEAoAH5_-Wd_-jrAg%3D%3D'
-            self.update_comment_continuation(continuation)
-            self.comment_timeout = 5
+            self.status['code'] = 3
+            self.status['can`t find second continuation for comments..']
+            return
+#            continuation = '0ofMyAPGARpyQ2pnS0RRb0xTSEJtTmxRd1gzQllWRlVxSndvWVZVTm5lRlJRVkVaaVNXSkRWMlpVVWpsSk1pMDFVMlZSRWd0SWNHWTJWREJmY0ZoVVZSb1Q2cWpkdVFFTkNndEljR1kyVkRCZmNGaFVWU0FCS0FJJTNEKOmavZj_6OsCMAA4AEACShsIARAAGAAgADoAQABKAFDZl-Kd_-jrAlgDeABQ48SMmf_o6wJYkciam_3o6wJoBIIBAggEiAEAoAH5_-Wd_-jrAg%3D%3D'
+#            self.update_comment_continuation(continuation)
+#            self.comment_timeout = 5
     
     def request_first_continuation(self):
         headers = {
@@ -598,8 +527,11 @@ class LiveMachine():
         r = self.session_comments.get(url)
         
         if r.status_code != 200:
-            print('YouTube says {}, goodluck!')
-            return
+            msg = 'YouTube says {}, goodluck!'
+            print(msg)
+            self.status['code'] = r.status_code
+            self.status['text'] = msg
+            return r.status_code
         
         # Get continuation
         resp_html = r.text
@@ -611,11 +543,15 @@ class LiveMachine():
         self.comment_timeout = out_dict['timeoutMs']/1000
         self.update_comment_continuation(out_dict['continuation'])
         
+        return 0
     
     def request_comments(self):
+        if not self.has_data:
+            raise NotImplementedError('I will implement scraping of old streams later. for now only works with `L.has_data==True`')
         # Make initial comment request
 #        self.request_second_continuation()
-        self.request_first_continuation()
+        if self.request_first_continuation() != 0:
+            return -1
         referer_url = '{}live_chat?continuation={}'.format(self.base_url,self.req_comment_continuation)
         sleep(self.comment_timeout)
         # Set headers
@@ -647,6 +583,8 @@ class LiveMachine():
         while 1:
             if self.stop:
                 self.comments_running = False
+                self.status['code'] = -1
+                self.status['text'] = 'stopped'
                 break
             
             param_continuation = 'continuation={}'.format(self.req_comment_continuation)
@@ -672,7 +610,10 @@ class LiveMachine():
                 self.comment_timeout = tmp_json['timeoutMs']/1000
                 continuation = tmp_json['continuation']
             except KeyError:
-                print(resp_json)
+                self.status['code'] = 4
+                self.status['text'] = 'failed to find continuation in comments worker'
+                self.comments_running = False
+#                print(resp_json)
                 return
             self.update_comment_continuation(continuation)
             
@@ -710,12 +651,13 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('Du_SRY3Ux74')
-    L.request_stats()
-    if L.comments_enabled:
-        L.request_comments()
-        pass
-    else:
-        print('Comments aren`t enabled')
+    L = LiveMachine('wO1VonWNV9Q')
+    if not L.has_data:
+        L.request_stats()
+        if L.comments_enabled:
+            L.request_comments()
+            pass
+        else:
+            print('Comments aren`t enabled')
     
     #L.stop = True
