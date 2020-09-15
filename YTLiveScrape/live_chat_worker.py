@@ -126,6 +126,8 @@ class LiveMachine():
         
         if 'Chat is disabled for this live stream.' in r.text:
             self.comments_enabled = False
+        elif 'Live chat is unavailable' in r.text:
+            self.comments_enabled = False
         else:
             self.comments_enabled = True
         
@@ -651,8 +653,8 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('wO1VonWNV9Q')
-    if not L.has_data:
+    L = LiveMachine('IcKj0GrQW5c')
+    if L.has_data:
         L.request_stats()
         if L.comments_enabled:
             L.request_comments()
