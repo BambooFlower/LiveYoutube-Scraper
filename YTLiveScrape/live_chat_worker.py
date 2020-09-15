@@ -14,7 +14,8 @@ from time import time
 import json
 import threading
 from YTLiveScrape.CommentsParser import parse_response
-from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator        
+from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
+#from RequestJSONGenerator import RequestJSONGenerator
 
 class LiveMachine():
     def __init__(self,video_id,cookies=None):
@@ -70,7 +71,7 @@ class LiveMachine():
         self.session_stats = self.session
         self.session_comments = self.session
         
-        self.get_initial_comment_continuation()
+#        self.get_initial_comment_continuation()
         
         
         self.stats_timeout = 0
@@ -87,7 +88,8 @@ class LiveMachine():
                 'sessionId':self.req_sessionId,
                 'userAgent':self.user_agent,
                 'videoId':self.video_id,
-                'continuation':self.req_comment_continuation
+                'stats-continuation':self.req_stats_continuation,
+                'comm-continuation':self.req_comment_continuation
                 }
         
         self.req_json = RequestJSONGenerator(dataForJSON)
@@ -112,18 +114,20 @@ class LiveMachine():
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-GB,en;q=0.5',
 #                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': '{}watch?v={}'.format(self.base_url,self.video_id),
                 'DNT': '1',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
-                'Cache-Control': 'max-age=0',
                 'TE': 'Trailers'
                 }
-        url = self.base_url + 'live_chat?v={}'.format(self.video_id)
+        #url = self.base_url + 'live_chat?v={}'.format(self.video_id)
+        print(self.req_comment_continuation)
+        url = self.base_url + 'live_chat?continuation={}'.format(self.req_comment_continuation)
         self.session_comments.headers = headers
         r = self.session_comments.get(url)
         
         if r.status_code != 200:
-            print('YouTube says {}. bad user!')
+            print('YouTube says {}. bad user!'.format(r.status_code))
             self.status['code'] = r.status_code
             self.status['text'] = 'failed to get initial comment continuation.'
             self.stop_scrape()
@@ -131,26 +135,30 @@ class LiveMachine():
         
         resp_html = r.text
         
-        if 'Chat is disabled for this live stream.' in r.text:
-            self.comments_enabled = False
-        elif 'Live chat is unavailable' in r.text:
-            self.comments_enabled = False
-        else:
-            self.comments_enabled = True
+        with open('o.html','w',encoding='utf8') as f:
+            f.write(resp_html)
         
+#        if 'Chat is disabled for this live stream.' in r.text:
+#            self.comments_enabled = False
+#        elif 'Live chat is unavailable' in r.text:
+#            self.comments_enabled = False
+#        else:
+#            self.comments_enabled = True
+                    
         # Find continuation parameter in HTML
-        try:
-            match = re.findall('"continuation":"[aA0-zZ9_]+"',resp_html)[0]
-            tmp_val = match.replace('"','').replace(':','').replace('continuation','')
-            self.update_comment_continuation(tmp_val)
-        except IndexError:
-            if dbg:
-                print("Can't find the 'continuation' in the initial request, " +
-                  'reverting to 0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC')
-            self.status['warnings'].append('Can\'t find the \'continuation\' in the initial request')
-            tmp_val = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
-            self.update_comment_continuation(tmp_val)
-        
+#        try:
+#            match = re.findall('liveChatRenderer(.*?)"continuation":"(.*?)"',resp_html)
+#            print(match)
+#            tmp_val = match.replace('"','').replace(':','').replace('continuation','')
+#            self.update_comment_continuation(tmp_val)
+#        except IndexError:
+#            if dbg:
+#                print("Can't find the 'continuation' in the initial request, " +
+#                  'reverting to 0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC')
+#            self.status['warnings'].append('Can\'t find the \'continuation\' in the initial request')
+#            tmp_val = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
+#            self.update_comment_continuation(tmp_val)
+#        
     
     def get_initial_data(self,dbg=False):
         dbg = True
@@ -180,7 +188,15 @@ class LiveMachine():
 #        with open('o.html','w',encoding='utf8') as f:
 #            f.write(resp_html)
         
-        # Check if video is a live content
+        # Find liveChat continuation parameter in HTML
+        try:
+            match = re.findall('"liveChatRenderer"(.*?)continuation":"(.*?)"',resp_html)
+            self.update_comment_continuation(match[-1][1])
+            self.comments_enabled = True
+        except:
+            self.comments_enabled = False
+            print('{} comments aren`t enabled'.format(self.video_id))
+        
         # Find key parameter -- "innertubeApiKey"
         try:
             match = re.findall('"isLiveContent":[truefalse]+',resp_html)[0]
@@ -215,7 +231,7 @@ class LiveMachine():
             self.status['text'] = 'no live data'
             self.is_live = False
             return
-        
+                
         # Find channel Id -- browseId
         try:
             match = re.findall('"browseId":"(.*?)"',resp_html)[0]
@@ -609,12 +625,15 @@ class LiveMachine():
         if not self.is_a_stream:
             print('{} is not a stream. cannot track live comments'.format(self.video_id))
             return
+        if not self.comments_enabled:
+            print('{} comments aren`t enabled'.format(self.video_id))
+            return
         if not self.has_data:
             raise NotImplementedError('I will implement scraping of old streams later. for now only works with `L.has_data==True`')
         # Make initial comment request
 #        self.request_second_continuation()
-        if self.request_first_continuation() != 0:
-            return -1
+        #if self.request_first_continuation() != 0:
+        #    return -1
         referer_url = '{}live_chat?continuation={}'.format(self.base_url,self.req_comment_continuation)
         sleep(self.comment_timeout)
         # Set headers
@@ -638,10 +657,10 @@ class LiveMachine():
         x.start()
         
     def comments_worker(self):
-        part_url = '{}youtubei/v1/live_chat/get_live_chat?{}'
-        param_commandMetadata = 'commandMetadata=%5Bobject%20Object%5D'
-        param_pbj = 'pbj=1'
-        param_key = 'key={}'.format(self.req_key)
+#        part_url = '{}youtubei/v1/live_chat/get_live_chat?{}'
+#        param_commandMetadata = 'commandMetadata=%5Bobject%20Object%5D'
+#        param_pbj = 'pbj=1'
+#        param_key = 'key={}'.format(self.req_key)
         
         while 1:
             if self.stop:
@@ -650,35 +669,45 @@ class LiveMachine():
                 self.status['text'] = 'stopped'
                 break
             
-            param_continuation = 'continuation={}'.format(self.req_comment_continuation)
-            url_params = '{}&{}&{}&{}'.format(param_commandMetadata,param_continuation,
-                                      param_pbj,param_key)
+#            param_continuation = 'continuation={}'.format(self.req_comment_continuation)
+#            url_params = '{}&{}&{}&{}'.format(param_commandMetadata,param_continuation,
+#                                      param_pbj,param_key)
+#            
+#            url = part_url.format(self.base_url,url_params)
             
-            url = part_url.format(self.base_url,url_params)
+            url = '{}youtubei/v1/live_chat/get_live_chat?key={}'.format(self.base_url,self.req_key)
             
             self.comments_running = True
             self.comments_waiting = False
-            r = self.session_stats.post(url,json=self.req_json.stats)
-            
+            r = self.session_stats.post(url,json=self.req_json.comments)
+                        
             if r.status_code != 200:
-                print('YouTube says {} to metadata'.format(r.status_code))
+                print('YouTube says {} to comments'.format(r.status_code))
                 exit(r.status_code)
             
             resp_json = r.json()
             
+            
             try:
                 # Find continuation
-                liveChatContinuation  = resp_json['continuationContents']['liveChatContinuation']
-                tmp_json = liveChatContinuation['continuations'][0]['timedContinuationData']
+                liveChatContinuation  = resp_json['continuationContents']['liveChatContinuation']['continuations'][0]
+                if 'invalidationContinuationData' in liveChatContinuation.keys():
+                    tmp_json = liveChatContinuation['invalidationContinuationData']
+                elif 'timedContinuationData' in liveChatContinuation.keys():
+                    tmp_json = liveChatContinuation['timedContinuationData']
                 self.comment_timeout = tmp_json['timeoutMs']/1000
                 continuation = tmp_json['continuation']
             except KeyError:
+                with open('o.txt','a',encoding='utf8') as f:
+                    f.write(json.dumps(resp_json))
                 self.status['code'] = 4
                 self.status['text'] = 'failed to find continuation in comments worker'
                 self.comments_running = False
 #                print(resp_json)
                 return
             self.update_comment_continuation(continuation)
+            
+            self.req_json.update_comments(continuation)
             
             #comments_json = liveChatContinuation['actions']
 
@@ -714,7 +743,7 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('kBDY5SsI7Q0')
+    L = LiveMachine('zlYB2bYazqw')
     if L.has_data:
         L.request_stats()
         if L.comments_enabled:
