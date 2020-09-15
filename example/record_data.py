@@ -3,6 +3,7 @@ import os
 from YTLiveScrape.live_chat_worker import LiveMachine
 import time
 from datetime import datetime
+import threading
 
 todaydate = datetime.today().strftime('%Y-%m-%d')
 
@@ -45,23 +46,34 @@ def write_file(filename,data):
         line +=  "\n"
         f.write(line)
 
+global run
+run = True
+
+def stop():
+    global run
+    run = False
+
 def update_comments():
     filename = 'comments/{}'.format(todaydate)
     
-    for i in range(5):
+    while 1:
+        if not run:
+            break
         for L in LiveMachines:
             comments = L.get_comments()
             for comment in comments:
                 comment['channel'] = L.channel_id
                 comment['video'] = L.video_id
                 write_file('{}.txt'.format(filename),comment)
-    #        print(commen)
+            print('{} has {} new comments'.format(L.video_id,len(comments)))
         time.sleep(5)
         
 def update_viewers():
     filename = 'viewers/{}'.format(todaydate)
     
-    for i in range(5):
+    while 1:
+        if not run:
+            break
         for L in LiveMachines:
             stats = L.get_stats()
             for stat in stats:
@@ -71,5 +83,7 @@ def update_viewers():
     #        print(commen)
         time.sleep(5)
         
-update_comments()
-update_viewers()
+x = threading.Thread(target=update_comments)
+y = threading.Thread(target=update_viewers)
+x.start()
+y.start()
