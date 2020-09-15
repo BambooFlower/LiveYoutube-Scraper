@@ -479,6 +479,17 @@ class LiveMachine():
             tmp = resp_json['actions'][2]['updateToggleButtonTextAction']
             self.num_dislikes = tmp['defaultText']['simpleText']
             
+            
+            # find whether stream has finished
+            try:
+                tmp = resp_json['actions'][3]['updateDateTextAction']['dateText']
+                if 'Streamed' in tmp:
+                    print('{} stopped streaming... quiting...'.format(self.video_id))
+                    self.stop_scrape()
+                    break
+            except:
+                pass
+            
             ## Video title
             try:
                 self.video_name = resp_json['actions'][4]['updateTitleAction']['title']['simpleText']
