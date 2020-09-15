@@ -172,8 +172,8 @@ class LiveMachine():
                 
         resp_html = r.text
         
-        with open('o.html','w',encoding='utf8') as f:
-            f.write(resp_html)
+#        with open('o.html','w',encoding='utf8') as f:
+#            f.write(resp_html)
         
         # Check if video is a live content
         # Find key parameter -- "innertubeApiKey"
@@ -477,7 +477,7 @@ class LiveMachine():
             ## Video title
             try:
                 self.video_name = resp_json['actions'][4]['updateTitleAction']['title']['simpleText']
-            except KeyError:
+            except:
                 pass
             
 #            print(self.num_likes,self.num_dislikes,self.num_viewers,self.video_name)
