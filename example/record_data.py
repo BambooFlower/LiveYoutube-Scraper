@@ -7,16 +7,18 @@ import threading
 
 todaydate = datetime.today().strftime('%Y-%m-%d')
 
-live_stream_ids = [#'38ICBymhD9Q',
+live_stream_ids = ['38ICBymhD9Q',
                    'Ed5euGd4s4o',
-                   #'NeST_YmwOuc','KFSx2YjNgno',
-                   #'zeOCUu6IVVg','M3BIFYIX_sE',
-                   #'G3DXNgVNPII'
+                   'NeST_YmwOuc','KFSx2YjNgno',
+                   'zeOCUu6IVVg','M3BIFYIX_sE',
+                   'G3DXNgVNPII'
                    ]
 
 LiveMachines = []
-for live_stream_id in live_stream_ids:
+for c,live_stream_id in enumerate(live_stream_ids):
+    print('initialising machine {} out of {}'.format(c+1,len(live_stream_ids)))
     LiveMachines.append(LiveMachine(live_stream_id))
+    time.sleep(10)
 
 for L in LiveMachines:    
     if L.has_data:
