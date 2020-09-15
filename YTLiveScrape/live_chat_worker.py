@@ -17,9 +17,11 @@ from YTLiveScrape.CommentsParser import parse_response
 from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator        
 
 class LiveMachine():
-    def __init__(self,video_id):
+    def __init__(self,video_id,cookies=None):
         print('Initialising LiveMachine for {}'.format(video_id))
+        self.cookies = cookies
         self.session = session()
+                
         self.base_url = 'https://www.youtube.com/'
         self.video_id = video_id
         self.watch_url = '{}watch?v={}'.format(self.base_url,self.video_id)        
@@ -61,6 +63,9 @@ class LiveMachine():
             return
         else:
             self.has_data = True
+        
+        if not self.cookies is None:
+            self.session.cookies = self.cookies
         
         self.session_stats = self.session
         self.session_comments = self.session

@@ -7,17 +7,22 @@ import threading
 
 todaydate = datetime.today().strftime('%Y-%m-%d')
 
-live_stream_ids = ['38ICBymhD9Q',
-                   'Ed5euGd4s4o',
-                   'NeST_YmwOuc','KFSx2YjNgno',
-                   'zeOCUu6IVVg','M3BIFYIX_sE',
-                   'G3DXNgVNPII'
+live_stream_ids = [#'38ICBymhD9Q',
+                   #'Ed5euGd4s4o',
+                   #'NeST_YmwOuc','KFSx2YjNgno',
+                   #'zeOCUu6IVVg','M3BIFYIX_sE',
+                   #'G3DXNgVNPII',
+                   '-lo55cFYKdA'
                    ]
 
 LiveMachines = []
 for c,live_stream_id in enumerate(live_stream_ids):
     print('initialising machine {} out of {}'.format(c+1,len(live_stream_ids)))
-    LiveMachines.append(LiveMachine(live_stream_id))
+    if c > 1:
+        cookies = LiveMachines[0].session.cookies
+    else:
+        cookies = None
+    LiveMachines.append(LiveMachine(live_stream_id,cookies=cookies))
     time.sleep(10)
 
 for L in LiveMachines:    
@@ -68,6 +73,7 @@ def update_comments():
             comments = L.get_comments()
             for comment in comments:
                 comment['channel'] = L.channel_id
+                comment['channel_name'] = L.video_author
                 comment['video'] = L.video_id
                 write_file('{}.txt'.format(filename),comment)
             if L.comments_enabled:
@@ -84,7 +90,8 @@ def update_viewers():
         for L in LiveMachines:
             stats = L.get_stats()
             for stat in stats:
-                stat['channel'] = L.channel_id
+                stat['channel_id'] = L.channel_id
+                stat['channel_name'] = L.video_author
                 stat['video'] = L.video_id
                 write_file('{}.txt'.format(filename),stat)
     #        print(commen)
