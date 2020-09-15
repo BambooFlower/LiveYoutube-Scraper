@@ -7,12 +7,15 @@ import threading
 
 todaydate = datetime.today().strftime('%Y-%m-%d')
 
-live_stream_ids = [#'38ICBymhD9Q',
-                   #'Ed5euGd4s4o',
-                   #'NeST_YmwOuc','KFSx2YjNgno',
-                   #'zeOCUu6IVVg','M3BIFYIX_sE',
-                   #'G3DXNgVNPII',
-                   '-lo55cFYKdA'
+live_stream_ids = [
+                    '38ICBymhD9Q',
+                    'zlYB2bYazqw'
+#                   'Ed5euGd4s4o',
+#                   'NeST_YmwOuc','KFSx2YjNgno',
+#                   'zeOCUu6IVVg','M3BIFYIX_sE',
+#                   'G3DXNgVNPII',
+#                   '-lo55cFYKdA',
+                   
                    ]
 
 LiveMachines = []
@@ -22,16 +25,18 @@ for c,live_stream_id in enumerate(live_stream_ids):
         cookies = LiveMachines[0].session.cookies
     else:
         cookies = None
-    LiveMachines.append(LiveMachine(live_stream_id,cookies=cookies))
-    time.sleep(10)
-
-for L in LiveMachines:    
+    L = LiveMachine(live_stream_id,cookies=cookies)
+    LiveMachines.append(L)
+    
     if L.has_data:
         # Start stats loop
         L.request_stats()
         if L.comments_enabled:
             # Start comments loop
             L.request_comments()
+    
+    #time.sleep(2)
+    
 
 
 def find_channel_name(channel_id):
@@ -87,6 +92,13 @@ def update_viewers():
     while 1:
         if not run:
             break
+        
+        now = datetime.now()
+        # dd/mm/YY H:M:S
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        print()
+        print(dt_string)
+        
         for L in LiveMachines:
             stats = L.get_stats()
             for stat in stats:
@@ -94,6 +106,8 @@ def update_viewers():
                 stat['channel_name'] = L.video_author
                 stat['video'] = L.video_id
                 write_file('{}.txt'.format(filename),stat)
+            if not stats == []:
+                print('{} has {} viewers'.format(L.video_name,stats[-1]['viewers']))
     #        print(commen)
         time.sleep(5)
         
