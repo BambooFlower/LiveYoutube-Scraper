@@ -5,6 +5,7 @@ Worker class which immitates the browser behaviour
 1) LiveStats
 2) LiveComments
 """
+import os
 from requests import session
 import re
 from random import random
@@ -13,9 +14,10 @@ from time import sleep
 from time import time
 import json
 import threading
-from YTLiveScrape.CommentsParser import parse_response
-from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
-#from RequestJSONGenerator import RequestJSONGenerator
+#from YTLiveScrape.CommentsParser import parse_response
+#from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
+from RequestJSONGenerator import RequestJSONGenerator
+from CommentsParser import parse_response
 
 class LiveMachine():
     def __init__(self,video_id,cookies=None):
@@ -28,6 +30,7 @@ class LiveMachine():
         self.watch_url = '{}watch?v={}'.format(self.base_url,self.video_id)        
         
         self.user_agent = self.get_user_agent()
+        self.check_config()
         
         self.status = {'code':0,'text':'all is good','warnings':[]}
         self.req_key = None
@@ -95,6 +98,7 @@ class LiveMachine():
         self.req_json = RequestJSONGenerator(dataForJSON)
         
     def stop_scrape(self):
+        print('Stopping scrape')
         self.stop = True
         
                 
@@ -135,30 +139,21 @@ class LiveMachine():
         
         resp_html = r.text
         
-        with open('o.html','w',encoding='utf8') as f:
-            f.write(resp_html)
-        
-#        if 'Chat is disabled for this live stream.' in r.text:
-#            self.comments_enabled = False
-#        elif 'Live chat is unavailable' in r.text:
-#            self.comments_enabled = False
-#        else:
-#            self.comments_enabled = True
-                    
-        # Find continuation parameter in HTML
-#        try:
-#            match = re.findall('liveChatRenderer(.*?)"continuation":"(.*?)"',resp_html)
-#            print(match)
-#            tmp_val = match.replace('"','').replace(':','').replace('continuation','')
-#            self.update_comment_continuation(tmp_val)
-#        except IndexError:
-#            if dbg:
-#                print("Can't find the 'continuation' in the initial request, " +
-#                  'reverting to 0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC')
-#            self.status['warnings'].append('Can\'t find the \'continuation\' in the initial request')
-#            tmp_val = '0ofMyANmGlBDamdLRFFvTGNXTnVZVkZYYkVoZmNVa3FKd29ZVlVOekxUWnpRM295VEVwdE1WQnlWMUZPTkVWeWMxQjNFZ3R4WTI1aFVWZHNTRjl4U1NBQjABggECCASIAQGgAeOUlv_f5usC'
-#            self.update_comment_continuation(tmp_val)
-#        
+        # with open('o.html','w',encoding='utf8') as f:
+        #     f.write(resp_html)
+    
+    def check_config(self):
+        if os.path.exists('browserdetails.config'):
+            self.config_exists = True
+            with open('browserdetails.config','r',encoding='utf-8') as f:
+                details = json.loads(f.read())
+                # self.req_key = details['req_key']
+                # self.req_serializedEventId = details['req_serializedEventId']
+                # self.req_sessionId = details['req_sessionId']
+                # self.req_clickTrackingParams = details['req_clickTrackingParams']
+                self.req_visitorData = details['req_visitorData']
+        else:
+            self.config_exists = False
     
     def get_initial_data(self,dbg=False):
         dbg = True
@@ -172,6 +167,7 @@ class LiveMachine():
             'Upgrade-Insecure-Requests': '1',
             'TE': 'Trailers'
         }
+        user_details = {}
         self.session.headers = headers
         
         r = self.session.get(self.watch_url)
@@ -226,6 +222,8 @@ class LiveMachine():
             return
         tmp = match.replace('"','').replace(':','').replace('isLiveContent','')
         
+        # user_details['isLive'] = tmp
+        
         if 'endTimestamp' in resp_html:
             self.status['code'] = 6
             self.status['text'] = 'no live data'
@@ -242,7 +240,10 @@ class LiveMachine():
                   '')
             self.status['warnings'].append('failed to find the channel id')
             self.channel_id = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
+
+            # user_details['channel_id'] = self.channel_id
         
+        # if not self.config_exists:
         # Find key parameter -- "innertubeApiKey"
         try:
             match = re.findall('"innertubeApiKey":"[aA0-zZ9_]+"',resp_html)[0]
@@ -253,8 +254,9 @@ class LiveMachine():
                   'reverting to AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8')
             self.status['warnings'].append('Can\'t find the \'innertubeApiKey/key\' in the initial request')
             self.req_key = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-#        print(self.req_key)
         
+        # user_details['req_key'] = self.req_key
+    
         # Find EVENT_ID -- "serializedEventId"
         try:
             match = re.findall('"EVENT_ID":"[aA0-zZ9_]+"',resp_html)[0]
@@ -265,7 +267,8 @@ class LiveMachine():
                   'reverting to 5_NdX_76Mczj0wXb26bwCA')
             self.status['warnings'].append('Can\'t find the \'EVENT_ID/serializedEventId\' in the initial request')
             self.req_serializedEventId = '5_NdX_76Mczj0wXb26bwCA'
-#        print(self.req_serializedEventId)
+        
+        # user_details['req_serializedEventId'] = self.req_serializedEventId
         
         # Find sessionId -- "sessionId"
         try:
@@ -277,7 +280,8 @@ class LiveMachine():
                   'reverting to 6871917207188534706')
             self.status['warnings'].append('Can\'t find the \'sessionId/sessionId\' in the initial request')
             self.req_sessionId = '6871917207188534706'
-#        print(self.req_sessionId)
+        
+        # user_details['req_sessionId'] = self.req_sessionId
         
         # Find clickTrackingParams -- "clickTrackingParams"
         try:
@@ -289,24 +293,22 @@ class LiveMachine():
                   'reverting to CB0QtSwYACITCNvViKL25esCFUW8VQodD_8N5w==')
             self.status['warnings'].append('Can\'t find the \'clickTrackingParams/clickTrackingParams\' in the initial request')
             self.req_clickTrackingParams = 'CB0QtSwYACITCNvViKL25esCFUW8VQodD_8N5w=='
-#        print(self.req_clickTrackingParams)
+        
+        # user_details['req_clickTrackingParams'] = self.req_clickTrackingParams
                 
         # find visitorData -- in VISITOR_DATA
-        try:
-            match = re.findall('"VISITOR_DATA":"[aA0-zZ9_]+"',resp_html)[0]
-            self.req_visitorData = match.replace('"','').replace(':','').replace('VISITOR_DATA','')
-        except IndexError:
-            if dbg:
-                print("Can't find the 'VISITOR_DATA/visitorData' in the initial request, " +
-                  'reverting to CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D')
-            self.status['warnings'].append('Can\'t find the \'VISITOR_DATA/visitorData\' in the initial request')
-            self.req_visitorData = 'CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D'
-#        print(self.req_visitorData)
-        
-#        with open('o.html','w',encoding='utf-8') as f:
-#            f.write(resp_html)
-        # find channelId-- in channelId
-
+        if not self.config_exists:
+            try:
+                match = re.findall('"VISITOR_DATA":"[aA0-zZ9_]+"',resp_html)[0]
+                self.req_visitorData = match.replace('"','').replace(':','').replace('VISITOR_DATA','')
+            except IndexError:
+                if dbg:
+                    print("Can't find the 'VISITOR_DATA/visitorData' in the initial request, " +
+                      'reverting to CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D')
+                self.status['warnings'].append('Can\'t find the \'VISITOR_DATA/visitorData\' in the initial request')
+                self.req_visitorData = 'CgtQMm9EN0ctb1RDSSjcvfj6BQ%3D%3D'
+            
+            user_details['req_visitorData'] = self.req_visitorData
 
         # find channelId-- in channelId
         try:
@@ -317,7 +319,6 @@ class LiveMachine():
                 print("Can't find the author, reverting to 'NO_CHANNEL'")
             self.status['warnings'].append('Can\'t find the channelId, reverting to \'NO_CHANNEL\'')
             self.video_author = 'NO_CHANNEL'
-#        print(self.req_visitorData)
         
         # find likes in HTML
         try:
@@ -330,7 +331,6 @@ class LiveMachine():
                 print("Can't find the number of likes, reverting to 0")
             self.status['warnings'].append('Can\'t find the number of likes, reverting to 0')
             self.num_og_likes = 0
-#        print(self.num_og_likes)
         
         # find dislikes in HTML
         try:
@@ -343,7 +343,6 @@ class LiveMachine():
                 print("Can't find the number of dislikes, reverting to 0")
             self.status['warnings'].append('Can\'t find the number of dislikes, reverting to 0')
             self.num_og_dislikes = 0
-#        print(self.num_og_dislikes)
             
         # find start timestamp in the HTML
         try:
@@ -354,7 +353,10 @@ class LiveMachine():
                 print("Can't find the startTimestamp, reverting to ''")
             self.status['warnings'].append('Can\'t find the startTimestamp, reverting to \'\'')
             self.timestamp_start = ''
-#        print(self.timestamp_start)
+
+        if not self.config_exists:
+            with open('browserdetails.config','w') as f:
+                f.write(json.dumps(user_details))
         
     def create_csn(self):
         '''
@@ -498,11 +500,13 @@ class LiveMachine():
             
             # find whether stream has finished
             try:
-                tmp = resp_json['actions'][3]['updateDateTextAction']['dateText']
-                if 'Streamed' in tmp:
-                    print('{} stopped streaming... quiting...'.format(self.video_id))
-                    self.stop_scrape()
-                    break
+                #f.write(resp_json)
+                ttt = resp_json['actions'][3]
+                if ttt != '':
+                    if 'Streamed' in ttt['updateDateTextAction']['dateText']['simpleText']:
+                        print('{} stopped streaming... quiting...'.format(self.video_id))
+                        self.stop_scrape()
+                        break
             except:
                 pass
             
@@ -743,7 +747,7 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('zlYB2bYazqw')
+    L = LiveMachine('3JSm3h2DViY')
     if L.has_data:
         L.request_stats()
         if L.comments_enabled:
