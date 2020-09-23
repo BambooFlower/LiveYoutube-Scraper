@@ -53,6 +53,17 @@ class StreamWorker():
                     start_time = time_match[0].replace('startTime":"','')
                     
                     self.streams[video_id] = {'start_time':int(start_time)}
+                
+                # Find all live videos
+                matches = re.findall('([0-9]+ watching(.*?)videoId":"[aA0-zZ9]+")',r.text)
+                if matches != []:
+                    for m in matches:
+                        video_match = re.findall('videoId":"[Aa0-zZ9]+',m[0])
+                        
+                        video_id = video_match[0].replace('videoId":"','')
+                        start_time = time.time()
+                        
+                        self.streams[video_id] = {'start_time':int(start_time)}
     
     def check_channel_list(self):
         return ['UCdubelOloxR3wzwJG9x8YqQ','UCQ4YOFsXjG9eXWZ6uLj2t2A','UCo4GExFphiUnNiMMExvFWdg','UCgxTPTFbIbCWfTR9I2-5SeQ']
@@ -148,6 +159,7 @@ class StreamWorker():
                     print('{} to start in {:.2f} minutes'.format(video_id,minutes_to_start))
                 if minutes_to_start < 2:
                     if not video_id in self.active_streams.keys():
+#                        print(minutes_to_start)
                         self.start_scraper(video_id)
             print()
             if 55 < now.minute < 59 and self.checked_channels == False:
