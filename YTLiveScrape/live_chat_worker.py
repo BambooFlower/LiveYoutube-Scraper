@@ -14,14 +14,15 @@ from time import sleep
 from time import time
 import json
 import threading
-#from YTLiveScrape.CommentsParser import parse_response
-#from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
-from RequestJSONGenerator import RequestJSONGenerator
-from CommentsParser import parse_response
+from YTLiveScrape.CommentsParser import parse_response
+from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
+#from RequestJSONGenerator import RequestJSONGenerator
+#from CommentsParser import parse_response
 
 class LiveMachine():
     def __init__(self,video_id,cookies=None):
         print('Initialising LiveMachine for {}'.format(video_id))
+        self.initialised = False
         self.cookies = cookies
         self.session = session()
                 
@@ -59,6 +60,8 @@ class LiveMachine():
         self.stop = False  ## Stop flag...
         self.stats_waiting = False
         self.comments_waiting = False
+        self.comments_running = False
+        self.stats_running = False
         
         self.get_initial_data()
         if self.status['code'] == 6:
@@ -96,6 +99,7 @@ class LiveMachine():
                 }
         
         self.req_json = RequestJSONGenerator(dataForJSON)
+        self.initialised = True
         
     def stop_scrape(self):
         print('Stopping scrape')
@@ -747,7 +751,7 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('3JSm3h2DViY')
+    L = LiveMachine('uLb9b6X0QSM')
     if L.has_data:
         L.request_stats()
         if L.comments_enabled:

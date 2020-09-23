@@ -1,119 +1,164 @@
 # -*- coding: utf-8 -*-
-import os
-from YTLiveScrape.live_chat_worker import LiveMachine
+"""
+Script to identify whether a channel has a stream 
+
+Check each channel at 5 to (whatever hour) to see whether it has a livestream schedulued
+
+Start the scraper 2 minutes before the scheduled start
+"""
+import requests 
+import re
 import time
-from datetime import datetime
-import threading
+import datetime
+from YTLiveScrape.live_chat_worker import LiveMachine
 
-todaydate = datetime.today().strftime('%Y-%m-%d')
+class StreamWorker():
+    def __init__(self):
+        self.streams = {}
+        self.active_streams = {}
+        self.channels = self.check_channel_list()
+        self.checked_channels = False
+        self.cookies = None        
+        self.check_channels()
+        
+        self.main_loop()        
+        
+        
+    def check_channels(self):
+        base_url = 'https://www.youtube.com/channel/{}'
 
-live_stream_ids = [
-                    '38ICBymhD9Q',
-                    'zlYB2bYazqw'
-#                   'Ed5euGd4s4o',
-#                   'NeST_YmwOuc','KFSx2YjNgno',
-#                   'zeOCUu6IVVg','M3BIFYIX_sE',
-#                   'G3DXNgVNPII',
-#                   '-lo55cFYKdA',
-                   
-                   ]
+        for channel in self.channels:
+            url = base_url.format(channel)
+            r = requests.get(url)
 
-LiveMachines = []
-for c,live_stream_id in enumerate(live_stream_ids):
-    print('initialising machine {} out of {}'.format(c+1,len(live_stream_ids)))
-    if c > 1:
-        cookies = LiveMachines[0].session.cookies
-    else:
-        cookies = None
-    L = LiveMachine(live_stream_id,cookies=cookies)
-    LiveMachines.append(L)
+            
+            matches = re.findall('("startTime":"[0-9]+"(.*?)videoId":"[Aa0-zZ9]+")',r.text)
+            if matches == []:
+                # Find all live videos
+                matches = re.findall('([0-9]+ watching(.*?)videoId":"[aA0-zZ9]+")',r.text)
+                for m in matches:
+                    video_match = re.findall('videoId":"[Aa0-zZ9]+',m[0])
+                    
+                    video_id = video_match[0].replace('videoId":"','')
+                    start_time = time.time()
+                    
+                    self.streams[video_id] = {'start_time':int(start_time)}
+            else:                
+                # Find all scheduled videos
+                for m in matches:
+                    video_match = re.findall('videoId":"[Aa0-zZ9]+',m[0])
+                    time_match = re.findall('startTime":"[0-9]+',m[0])
+                    
+                    video_id = video_match[0].replace('videoId":"','')
+                    start_time = time_match[0].replace('startTime":"','')
+                    
+                    self.streams[video_id] = {'start_time':int(start_time)}
     
-    if L.has_data:
-        # Start stats loop
-        L.request_stats()
-        if L.comments_enabled:
-            # Start comments loop
-            L.request_comments()
+    def check_channel_list(self):
+        return ['UCdubelOloxR3wzwJG9x8YqQ','UCQ4YOFsXjG9eXWZ6uLj2t2A','UCo4GExFphiUnNiMMExvFWdg','UCgxTPTFbIbCWfTR9I2-5SeQ']
     
-    #time.sleep(2)
-    
-
-
-def find_channel_name(channel_id):
-    pass
-
-def write_file(filename,data):
-    if not os.path.exists(filename):
-        with open(filename,'w',encoding='utf-8') as f:
+    def write_file(self,filename,data):
+        import os
+        if not os.path.exists(filename):
+            with open(filename,'w',encoding='utf-8') as f:
+                line = ''
+                for key in data.keys():
+                    line += key + "\t"
+                line = line[:-1]
+                line +=  "\n"
+                f.write(line)
+        with open(filename,'a',encoding='utf-8') as f:
             line = ''
             for key in data.keys():
-                line += key + "\t"
+                tmp = str(data[key])
+                line += tmp.replace("\n","") + "\t"
             line = line[:-1]
             line +=  "\n"
             f.write(line)
-    with open(filename,'a',encoding='utf-8') as f:
-        line = ''
-        for key in data.keys():
-            tmp = str(data[key])
-            line += tmp.replace("\n","") + "\t"
-        line = line[:-1]
-        line +=  "\n"
-        f.write(line)
-
-run = True
-
-def stop():
-    global run
-    run = False
-    for L in LiveMachines:
-        L.stop_scrape()
-
-def update_comments():
-    filename = 'comments/{}'.format(todaydate)
     
-    while 1:
-        if not run:
-            break
-        for L in LiveMachines:
-            comments = L.get_comments()
-            for comment in comments:
-                comment['channel'] = L.channel_id
-                comment['channel_name'] = L.video_author
-                comment['video'] = L.video_id
-                write_file('{}.txt'.format(filename),comment)
+    def start_scraper(self,link):
+        
+        L = LiveMachine(link,cookies=self.cookies)
+        if not self.cookies is None:
+            self.cookies = L.session.cookies
+        
+        if L.has_data:
+            L.request_stats()
             if L.comments_enabled:
-#                print('{} has {} new comments'.format(L.video_id,len(comments)))
+                L.request_comments()
                 pass
-        time.sleep(5)
         
-def update_viewers():
-    filename = 'viewers/{}'.format(todaydate)
+        details = {'machine':L}
+        
+        self.active_streams[link] = details
+        print('Added video {}'.format(link))
+        
     
-    while 1:
-        if not run:
-            break
+    def update_workers(self):
+        # Manage the active_streams dictionary to only keep streams that are active
+        tmp = dict(self.active_streams)
+        for worker in tmp.keys():
+            L = tmp[worker]['machine']
+            if L.initialised:
+                if not L.stats_running:
+                    self.active_streams.pop(worker)
+                    print('Removed video {}'.format(worker))
+    
+    def write_output(self):
+        # Function to handle all of the writing to the file
+        # Go through all of the active machines and grab their outputs
+        todaydate = datetime.datetime.today().strftime('%Y-%m-%d')
         
-        now = datetime.now()
-        # dd/mm/YY H:M:S
-        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        print()
-        print(dt_string)
+        comments_filename = 'comments/{}'.format(todaydate)
+        viewers_filename = 'viewers/{}'.format(todaydate)
         
-        for L in LiveMachines:
+        for worker in self.active_streams.keys():
+            L = self.active_streams[worker]['machine']
+            
+            if L.comments_enabled:                
+                comments = L.get_comments()
+                for comment in comments:
+                    comment['channel'] = L.channel_id
+                    comment['channel_name'] = L.video_author
+                    comment['video'] = L.video_id
+                    self.write_file('{}.txt'.format(comments_filename),comment)
+                    
             stats = L.get_stats()
             for stat in stats:
                 stat['channel_id'] = L.channel_id
                 stat['channel_name'] = L.video_author
                 stat['video'] = L.video_id
-                write_file('{}.txt'.format(filename),stat)
+                self.write_file('{}.txt'.format(viewers_filename),stat)
             if not stats == []:
                 print('{} has {} viewers'.format(L.video_name,stats[-1]['viewers']))
-    #        print(commen)
-        time.sleep(5)
-        
-x = threading.Thread(target=update_comments)
-y = threading.Thread(target=update_viewers)
-x.start()
-y.start()
-
-#stop()
+    
+    def main_loop(self):
+        while 1:
+            # Run loop every minute
+            # check whether any of the streams are within 2 minutes of the start
+            now = datetime.datetime.now()
+            
+            self.update_workers()
+            
+            print()
+            print(now)
+            for video_id in self.streams.keys():
+                minutes_to_start = (self.streams[video_id]['start_time']-time.time())/60
+                if minutes_to_start > 0:
+                    print('{} to start in {:.2f} minutes'.format(video_id,minutes_to_start))
+                if minutes_to_start < 2:
+                    if not video_id in self.active_streams.keys():
+                        self.start_scraper(video_id)
+            print()
+            if 55 < now.minute < 59 and self.checked_channels == False:
+                self.check_channel_list()
+                self.check_channels()
+                self.checked_channels = True
+            
+            if 0 < now.minute < 2 and self.checked_channels == True:
+                self.checked_channels = False
+                
+            self.write_output()
+            time.sleep(60)
+    
+S = StreamWorker()
