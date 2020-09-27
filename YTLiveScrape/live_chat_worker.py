@@ -436,6 +436,7 @@ class LiveMachine():
         
         
         x = threading.Thread(target=self.stats_worker,args=(url,))
+        x.daemon = True
         x.start()
 
         
@@ -662,6 +663,7 @@ class LiveMachine():
         
         
         x = threading.Thread(target=self.comments_worker)
+        x.daemon = True
         x.start()
         
     def comments_worker(self):
