@@ -77,13 +77,14 @@ def parse_response(json_data):
 #        print(child)
         
         c1 = child['item']
+        
         if 'liveChatTextMessageRenderer' in c1.keys():
             c2 = c1['liveChatTextMessageRenderer']
 #            print("\n\n")
 #            print(c2.keys())
 #            print(c2)
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             timestamp = c2['timestampUsec']
@@ -130,7 +131,7 @@ def parse_response(json_data):
             
             c2 = c1['liveChatPaidMessageRenderer']
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             timestamp = c2['timestampUsec']
@@ -158,7 +159,7 @@ def parse_response(json_data):
         elif 'liveChatTickerPaidMessageItemRenderer'  in c1.keys():
             c2 = c1['liveChatTickerPaidMessageItemRenderer']
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             #timestamp = 
@@ -188,7 +189,7 @@ def parse_response(json_data):
         elif 'liveChatMembershipItemRenderer' in c1.keys():
             c2 = c1['liveChatMembershipItemRenderer']
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             timestamp = c2['timestampUsec']
@@ -201,7 +202,7 @@ def parse_response(json_data):
         elif 'liveChatPaidStickerRenderer' in c1.keys():
             c2 = c1['liveChatPaidStickerRenderer']
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             timestamp = c2['timestampUsec']
@@ -216,7 +217,7 @@ def parse_response(json_data):
         elif 'liveChatTickerPaidStickerItemRenderer' in c1.keys():
             c2 = c1['liveChatTickerPaidStickerItemRenderer']
             
-            if 'authoBadges' in c2.keys():
+            if 'authorBadges' in c2.keys():
                 is_member = 'True'
             
             channelId = c2['authorExternalChannelId']
