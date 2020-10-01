@@ -14,10 +14,10 @@ from time import sleep
 from time import time
 import json
 import threading
-from YTLiveScrape.CommentsParser import parse_response
-from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
-#from RequestJSONGenerator import RequestJSONGenerator
-#from CommentsParser import parse_response
+# from YTLiveScrape.CommentsParser import parse_response
+# from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
+from RequestJSONGenerator import RequestJSONGenerator
+from CommentsParser import parse_response
 
 class LiveMachine():
     def __init__(self,video_id,cookies=None):
@@ -720,7 +720,7 @@ class LiveMachine():
             self.req_json.update_comments(continuation)
             
             #comments_json = liveChatContinuation['actions']
-
+            
             self.add_comments(parse_response(resp_json))
             
             self.comments_waiting = True
@@ -732,6 +732,8 @@ class LiveMachine():
 #        print(len(data))
         for d in data:
             self.comments_hist.append(d)
+            # if d['is-member'] == 'True':
+            #     print(d)
     
     def get_comments(self):
         if self.comments_waiting:
@@ -753,7 +755,7 @@ class LiveMachine():
             
         
 if __name__ == '__main__':
-    L = LiveMachine('aOBoWLyywgE')
+    L = LiveMachine('RNFByvEPVxo')
     if L.has_data:
         L.request_stats()
         if L.comments_enabled:
