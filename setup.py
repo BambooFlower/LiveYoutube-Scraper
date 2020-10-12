@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/BambooFlower/LiveYoutube-Scraper",
-    download_url =
+    download_url = 'https://github.com/BambooFlower/LiveYoutube-Scraper/archive/v1.0.0.tar.gz',
     keywords=["YouTube", "Live comments","scrape"],
     classifiers=[
         'Development Status :: 3 - Alpha',
