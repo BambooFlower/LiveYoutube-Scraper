@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 required_modules = ['requests', 'python-dateutil', 'six', 'cached-property']
 
-version = '1.0.0'
+version = '1.0.3'
 
 with open(os.path.join(os.path.dirname(__file__), 'README.md')) as file:
     long_description = file.read()
@@ -15,10 +15,12 @@ setup(
     version=version ,
     description="Simple YouTube Live scrape package",
     license='MIT',
+    author = 'Chelyabinsk',
+    author_email = '15384813+chelyabinsk@users.noreply.github.com',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/BambooFlower/LiveYoutube-Scraper",
-    download_url = 'https://github.com/BambooFlower/LiveYoutube-Scraper/archive/v1.0.1.tar.gz',
+    download_url = 'https://github.com/BambooFlower/LiveYoutube-Scraper/archive/v1.0.3.tar.gz',
     keywords=["YouTube", "Live comments","scrape"],
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -3,7 +3,7 @@ Scrape YouTube Live without API. Your last hope when you can't use the official 
 or Selenium. Let me know if you get any errors, YouTube is constantly changing their backend.
 
 # Installation
-`pip install -i https://test.pypi.org/simple/ YTLiveScrape`
+`pip install YTLiveScrape`
 
 # Example
 
