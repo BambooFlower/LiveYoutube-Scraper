@@ -14,10 +14,10 @@ from time import sleep
 from time import time
 import json
 import threading
-# from YTLiveScrape.CommentsParser import parse_response
-# from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
-from RequestJSONGenerator import RequestJSONGenerator
-from CommentsParser import parse_response
+from YTLiveScrape.CommentsParser import parse_response
+from YTLiveScrape.RequestJSONGenerator import RequestJSONGenerator
+#from RequestJSONGenerator import RequestJSONGenerator
+#from CommentsParser import parse_response
 
 class LiveMachine():
     def __init__(self,video_id,cookies=None):
