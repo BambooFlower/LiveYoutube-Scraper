@@ -1,3 +1,5 @@
+<a href="https://www.buymeacoffee.com/BambooFlower" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 # LiveYoutube Scraper
 Scrape YouTube Live without API. Your last hope when you can't use the official [YouTube API](https://developers.google.com/youtube)
 or Selenium. Let me know if you get any errors, YouTube is constantly changing their backend.
